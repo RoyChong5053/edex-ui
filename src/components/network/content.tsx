@@ -1,6 +1,7 @@
 import { createSignal, onCleanup } from 'solid-js';
 import Divider from '@/components/divider';
 import DiskUsage from '@/components/network/disk';
+import ClusterRadar from '@/components/network/radar';
 import ConnectionStatus from '@/components/network/status';
 import NetworkTraffic from '@/components/network/traffic';
 
@@ -32,6 +33,8 @@ function NetworkContent() {
 		<>
 			<Divider />
 			<Network />
+			<Divider />
+			<ClusterRadar />
 			<Divider />
 			<DiskUsage />
 		</>

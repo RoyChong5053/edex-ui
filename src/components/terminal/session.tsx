@@ -93,12 +93,14 @@ function Session({ id, active }: SessionProps) {
 	// fontSize
 	const screenWidth = useScreenWidth();
 	const fontSize = () => {
-		if (screenWidth() < 1920) {
-			return 12;
-		} else if (screenWidth() < 2560) {
+		if (screenWidth() < 1600) {
+			return 13;
+		} else if (screenWidth() < 1920) {
 			return 14;
-		} else if (screenWidth() < 3840) {
+		} else if (screenWidth() < 2560) {
 			return 16;
+		} else if (screenWidth() < 3840) {
+			return 18;
 		}
 		return 20;
 	};

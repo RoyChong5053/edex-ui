@@ -56,7 +56,7 @@ function ConnectionStatus(props: ConnectionStatusProps): JSX.Element {
 	};
 
 	return (
-		<div class="font-united_sans_light flex h-[7.41vh] w-full flex-col items-start justify-around text-[1.111vh] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
+		<div class="font-united_sans_light flex h-[7.41vh] w-full flex-col items-start justify-around text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
 			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
 				<span class="sm:text-xxs md:text-base lg:text-xl xl:text-3xl">
 					NETWORK STATUS

@@ -10,11 +10,13 @@ use tauri_plugin_log::{Target, TargetKind};
 
 use crate::event::main::EventProcessor;
 use crate::file::main::DirectoryFileWatcher;
+use crate::power::PowerManager;
 use crate::session::main::PtySessionManager;
 use crate::sys::main::SystemMonitor;
 
 mod event;
 mod file;
+mod power;
 mod session;
 mod sys;
 
@@ -72,11 +74,28 @@ fn main() {
                 .set_focus();
         }))
         .invoke_handler(tauri::generate_handler![kernel_version])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if let Some(power) = window
+                    .app_handle()
+                    .try_state::<std::sync::Arc<PowerManager>>()
+                {
+                    power.set_focused(*focused);
+                }
+            }
+        })
         .setup(move |app| {
             info!("Log Level: {:?}", log_level);
 
+            // Presence / power state machine. Keep this alive for the whole
+            // process: the control socket, idle watcher and focus handler all
+            // share it.
+            let power = PowerManager::new(app.handle().clone(), 600);
+            app.manage(power.clone());
+            power.start();
+
             let (mut event_processor, process_event_sender) =
-                EventProcessor::new(app.handle().clone());
+                EventProcessor::new(app.handle().clone(), power.clone());
 
             // Start event processor in background
             tauri::async_runtime::spawn(async move {
@@ -123,7 +142,7 @@ fn main() {
             // regardless. No `JoinHandle` or shutdown signal is needed
             // because the monitor holds no external resources that require
             // explicit cleanup.
-            let monitor = SystemMonitor::new(1, process_event_sender.clone());
+            let monitor = SystemMonitor::new(2, process_event_sender.clone(), power.clone());
             std::thread::Builder::new()
                 .name("edex-sysmon".into())
                 .spawn(move || monitor.run())

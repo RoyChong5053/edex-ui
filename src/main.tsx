@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/solid-query';
-import { SolidQueryDevtools } from '@tanstack/solid-query-devtools';
+import { PowerProvider } from '@/lib/power';
 import { QUERY_CLIENT } from '@/lib/queries';
+import { SystemDataProvider } from '@/lib/system';
 import { TerminalProvider } from '@/lib/terminal';
 import { ThemeProvider } from '@/lib/themes';
 import 'augmented-ui/augmented-ui.min.css';
@@ -12,15 +13,15 @@ import './index.css';
 render(
 	() => (
 		<ThemeProvider>
-			<TerminalProvider>
-				<QueryClientProvider client={QUERY_CLIENT}>
-					<App />
-					<SolidQueryDevtools
-						initialIsOpen={false}
-						buttonPosition="top-right"
-					/>
-				</QueryClientProvider>
-			</TerminalProvider>
+			<PowerProvider>
+				<SystemDataProvider>
+					<TerminalProvider>
+						<QueryClientProvider client={QUERY_CLIENT}>
+							<App />
+						</QueryClientProvider>
+					</TerminalProvider>
+				</SystemDataProvider>
+			</PowerProvider>
 		</ThemeProvider>
 	),
 	document.getElementById('root') as HTMLElement,

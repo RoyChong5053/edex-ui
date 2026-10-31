@@ -1,9 +1,11 @@
 use crate::event::main::ProcessEvent;
+use crate::power::PowerManager;
 use chrono::{DateTime, Local};
 use log::{error, warn};
 #[cfg(target_os = "linux")]
 use nvml_wrapper::Nvml;
 use serde::Serialize;
+use std::sync::Arc;
 #[cfg(target_os = "linux")]
 use std::sync::OnceLock;
 use std::thread;
@@ -13,7 +15,7 @@ use std::{
 };
 use sysinfo::{
     Components, CpuRefreshKind, DiskRefreshKind, Disks, MemoryRefreshKind, Networks,
-    ProcessRefreshKind, RefreshKind, System,
+    ProcessRefreshKind, ProcessesToUpdate, RefreshKind, System,
 };
 use tokio::sync::mpsc;
 
@@ -192,10 +194,23 @@ fn extract_cpu_temperature(components: &Components) -> f32 {
 
 #[cfg(target_os = "linux")]
 fn extract_cpu_temperature(components: &Components) -> f32 {
+    // AMD exposes "Tctl"; Intel Atom/Celeron exposes "Package id 0" or
+    // "Core 0". Try the common labels first, then any positive sensor.
+    for needle in ["package id 0", "tctl", "core 0", "cpu"] {
+        if let Some(temp) = components
+            .iter()
+            .find(|c| c.label().to_lowercase().contains(needle))
+            .and_then(|c| c.temperature())
+            .filter(|t| *t > 0.0)
+        {
+            return temp;
+        }
+    }
+
     components
         .iter()
-        .find(|c| c.label().to_lowercase().contains("tctl"))
-        .and_then(|c| c.temperature())
+        .filter_map(|c| c.temperature())
+        .find(|t| *t > 0.0)
         .unwrap_or(0.0)
 }
 
@@ -390,6 +405,9 @@ fn extract_process(sys: &System) -> Vec<ProcessInfo> {
             .partial_cmp(&a.cpu_usage)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    // The dashboard only shows a handful of rows. Serialising every process
+    // on a 2-core machine is pure overhead, so keep the list bounded.
+    processes.truncate(12);
 
     processes
 }
@@ -457,15 +475,21 @@ pub struct SystemMonitor {
     components: Components,
     refresh_interval: Duration,
     event_tx: mpsc::UnboundedSender<ProcessEvent>,
+    power: Arc<PowerManager>,
+    last_processes: Vec<ProcessInfo>,
+    last_disks: Vec<DiskUsage>,
 }
 
 impl SystemMonitor {
-    pub fn new(refresh_interval_secs: u64, event_tx: mpsc::UnboundedSender<ProcessEvent>) -> Self {
+    pub fn new(
+        refresh_interval_secs: u64,
+        event_tx: mpsc::UnboundedSender<ProcessEvent>,
+        power: Arc<PowerManager>,
+    ) -> Self {
         let system = System::new_with_specifics(
             RefreshKind::nothing()
                 .with_memory(MemoryRefreshKind::everything())
-                .with_cpu(CpuRefreshKind::everything())
-                .with_processes(ProcessRefreshKind::nothing().with_cpu().with_memory()),
+                .with_cpu(CpuRefreshKind::everything()),
         );
 
         let networks = Networks::new_with_refreshed_list();
@@ -481,6 +505,9 @@ impl SystemMonitor {
             components,
             refresh_interval: Duration::from_secs(refresh_interval_secs),
             event_tx,
+            power,
+            last_processes: Vec::new(),
+            last_disks: Vec::new(),
         }
     }
 
@@ -493,31 +520,49 @@ impl SystemMonitor {
     /// event processor has been dropped during shutdown we stop looping so
     /// we don't spin logging send errors.
     pub fn run(mut self) {
+        let mut tick: u64 = 0;
+
         loop {
+            // YIELD / SLEEP: park this thread instead of paying the ~84 ms
+            // sysinfo refresh cost every second. `activate()` wakes us.
+            self.power.wait_active();
+
             self.system.refresh_specifics(
                 RefreshKind::nothing()
                     .with_memory(MemoryRefreshKind::everything())
-                    .with_cpu(CpuRefreshKind::everything())
-                    .with_processes(ProcessRefreshKind::nothing().with_cpu().with_memory()),
+                    .with_cpu(CpuRefreshKind::everything()),
             );
             self.networks.refresh(true);
-            self.disks
-                .refresh_specifics(true, DiskRefreshKind::everything().without_io_usage()); // refresh_list = true to detect new/removed disks
-            self.components.refresh(true);
 
-            let process_data = extract_process(&self.system);
+            // CPU and memory change every second; the process table, disks and
+            // hwmon sensors do not. Refresh them on slower cadences and reuse
+            // the last snapshot in between.
+            if tick.is_multiple_of(5) {
+                self.system.refresh_processes_specifics(
+                    ProcessesToUpdate::All,
+                    true,
+                    ProcessRefreshKind::nothing().with_cpu().with_memory(),
+                );
+                self.components.refresh(true);
+                self.last_processes = extract_process(&self.system);
+            }
+            if tick.is_multiple_of(10) {
+                self.disks
+                    .refresh_specifics(true, DiskRefreshKind::everything().without_io_usage());
+                self.last_disks = extract_disk_usage(&self.disks);
+            }
+
             let memory = extract_memory(&self.system);
             let cpu = extract_cpu_data(&self.system, &self.components);
             let gpu = extract_gpu_data(&self.system, &self.components);
             let network_data = extract_network(&self.networks);
-            let disks_data = extract_disk_usage(&self.disks);
 
             let system_data = SystemData {
                 uptime: System::uptime(),
                 memory,
                 cpu,
                 gpu,
-                processes: process_data,
+                processes: self.last_processes.clone(),
             };
 
             // Receiver gone => app is shutting down. Exit cleanly instead of
@@ -528,8 +573,14 @@ impl SystemMonitor {
 
             self.send_event(ProcessEvent::System { system_data }, "system");
             self.send_event(ProcessEvent::Network { network_data }, "network");
-            self.send_event(ProcessEvent::Disks { disks_data }, "disks");
+            self.send_event(
+                ProcessEvent::Disks {
+                    disks_data: self.last_disks.clone(),
+                },
+                "disks",
+            );
 
+            tick = tick.wrapping_add(1);
             thread::sleep(self.refresh_interval);
         }
     }

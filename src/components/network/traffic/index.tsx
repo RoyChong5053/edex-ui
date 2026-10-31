@@ -10,6 +10,7 @@ import {
 	onMount,
 } from 'solid-js';
 import { errorLog } from '@/lib/log';
+import { usePower } from '@/lib/power';
 import { selectStyle, useTheme } from '@/lib/themes';
 import { cn } from '@/lib/utils';
 import type { NetworkTrafficStatus } from '@/models';
@@ -20,6 +21,7 @@ type NetworkTrafficProps = {
 
 function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 	const { theme } = useTheme();
+	const { active } = usePower();
 	const style = () => selectStyle(theme());
 
 	let uploadCanvas!: HTMLCanvasElement;
@@ -35,7 +37,7 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 		{ length: 2 },
 		(_, i) =>
 			new SmoothieChart({
-				limitFPS: 40,
+				limitFPS: 12,
 				responsive: true,
 				millisPerPixel: 70,
 				interpolation: 'linear',
@@ -66,9 +68,31 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 	charts.forEach((v, i) => v.addTimeSeries(series[i], timeSeriesOptions));
 
 	onMount(() => {
-		charts[0].streamTo(uploadCanvas, 1000);
-		charts[1].streamTo(downloadCanvas, 1000);
+		if (active()) {
+			charts[0].streamTo(uploadCanvas, 1000);
+			charts[1].streamTo(downloadCanvas, 1000);
+		}
 	});
+
+	// YIELD / SLEEP: stop Smoothie's requestAnimationFrame loop entirely.
+	// This is the single biggest CPU saving in the dashboard on this Atom.
+	createEffect(
+		on(
+			active,
+			active => {
+				if (!uploadCanvas || !downloadCanvas) {
+					return;
+				}
+				if (active) {
+					charts[0].streamTo(uploadCanvas, 1000);
+					charts[1].streamTo(downloadCanvas, 1000);
+				} else {
+					charts.forEach(o => o.stop());
+				}
+			},
+			{ defer: true },
+		),
+	);
 
 	onCleanup(() => {
 		unListen.then(f => f()).catch(errorLog);
@@ -102,7 +126,7 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 	);
 
 	return (
-		<div class="font-united_sans_light flex w-full flex-col items-start justify-around pb-1 text-[1.111vh] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
+		<div class="font-united_sans_light flex w-full flex-col items-start justify-around pb-1 text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
 			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
 				<span class="sm:text-xxs md:text-sm lg:text-lg xl:text-3xl">
 					NETWORK TRAFFIC
@@ -127,14 +151,14 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 				<canvas
 					ref={uploadCanvas}
 					class={cn(
-						'border-default/30 z-10 mx-0 my-[0.46vh] max-h-[10vh] min-h-[8vh] w-full border-t-[0.092vh] border-dashed',
+						'border-default/30 z-10 mx-0 my-[0.46vh] max-h-[7vh] min-h-[5.5vh] w-full border-t-[0.092vh] border-dashed',
 						props.connected() ? 'opacity-100' : 'opacity-30',
 					)}
 				/>
 				<canvas
 					ref={downloadCanvas}
 					class={cn(
-						'border-t-default/40 border-b-default/30 z-10 mx-0 max-h-[10vh] min-h-[8vh] w-full border-t-[0.139vh] border-b-[0.092vh] border-solid',
+						'border-t-default/40 border-b-default/30 z-10 mx-0 max-h-[7vh] min-h-[5.5vh] w-full border-t-[0.139vh] border-b-[0.092vh] border-solid',
 						props.connected() ? 'opacity-100' : 'opacity-30',
 					)}
 				/>

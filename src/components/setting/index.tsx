@@ -53,6 +53,18 @@ export default function Setting(props: SettingProps) {
 								<span>Close current Terminal</span>
 								<span class="capitalize">Ctrl + w</span>
 							</div>
+							<div class="text-main flex flex-row flex-nowrap justify-between">
+								<span>Cycle Theme</span>
+								<span class="capitalize">Ctrl + Shift + t</span>
+							</div>
+							<div class="text-main flex flex-row flex-nowrap justify-between">
+								<span>Showcase Mode</span>
+								<span class="capitalize">Ctrl + Shift + s</span>
+							</div>
+							<div class="text-main flex flex-row flex-nowrap justify-between">
+								<span>Freeze / Wake</span>
+								<span class="capitalize">edex-ctl toggle</span>
+							</div>
 						</div>
 					</div>
 				</div>

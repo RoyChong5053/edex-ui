@@ -41,7 +41,7 @@ function MemInfo() {
 	};
 
 	return (
-		<div class="font-united_sans_light w-full text-[1.111vh] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
+		<div class="font-united_sans_light w-full text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
 			<div class="flex flex-row flex-nowrap items-center justify-between">
 				<span class="sm:text-xs md:text-base lg:text-2xl xl:text-4xl">
 					MEMORY

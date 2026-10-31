@@ -1003,6 +1003,7 @@ version = "0.0.1"
 dependencies = [
  "chrono",
  "dashmap",
+ "libc",
  "log",
  "notify",
  "nvml-wrapper",

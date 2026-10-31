@@ -33,12 +33,12 @@ function FileSystem() {
 
 	return (
 		<>
-			<div class="relative flex size-full max-h-[38vh] flex-col justify-between sm:p-1 md:p-2 lg:p-3">
+			<div class="relative flex h-full w-[65%] flex-col justify-between sm:p-1 md:p-2 lg:p-3">
 				<Banner
 					title={/*@once*/ 'FILESYSTEM'}
 					name={fileSystem()?.path || ''}
 				/>
-				<div class="no-scrollbar animate-fade-delay-200 relative box-border grid h-full max-h-[34vh] min-h-[25.5vh] appearance-none auto-rows-[8.5vh] grid-cols-[repeat(auto-fill,minmax(8.5vh,1fr))] gap-[1vh] overflow-auto">
+				<div class="no-scrollbar animate-fade-delay-200 relative box-border grid h-full max-h-[29vh] min-h-[22vh] appearance-none auto-rows-[6.6vh] grid-cols-[repeat(auto-fill,minmax(6.6vh,1fr))] gap-[0.8vh] overflow-auto">
 					<FileSection showHidden={showHidden} fileSystem={fileSystem} />
 				</div>
 			</div>

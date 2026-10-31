@@ -108,7 +108,7 @@ function TerminalSection() {
 	}
 
 	return (
-		<section class="relative h-full w-[68vw] overflow-hidden pt-[2.5vh] sm:px-1 md:px-2 lg:px-3">
+		<section class="relative h-full w-[56vw] overflow-hidden pt-[2.5vh] sm:px-1 md:px-2 lg:px-3">
 			<div
 				class="shell augment-border flex size-full flex-col items-start justify-start"
 				data-augmented-ui="bl-clip tr-clip border"

@@ -1,6 +1,8 @@
 use crate::file::main::DirectoryInfo;
+use crate::power::PowerManager;
 use crate::sys::main::{DiskUsage, NetworkData, SystemData};
 use log::{error, trace};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
@@ -21,15 +23,20 @@ pub enum ProcessEvent {
 pub struct EventProcessor {
     event_rx: mpsc::UnboundedReceiver<ProcessEvent>,
     app_handle: AppHandle,
+    power: Arc<PowerManager>,
 }
 
 impl EventProcessor {
-    pub fn new(app_handle: AppHandle) -> (Self, mpsc::UnboundedSender<ProcessEvent>) {
+    pub fn new(
+        app_handle: AppHandle,
+        power: Arc<PowerManager>,
+    ) -> (Self, mpsc::UnboundedSender<ProcessEvent>) {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let processor = Self {
             event_rx: rx,
             app_handle,
+            power,
         };
 
         (processor, tx)
@@ -67,6 +74,14 @@ impl EventProcessor {
     // Forward output to external systems (websockets, files, etc.)
     fn forward_pty_message(&self, id: String, data: &[u8]) {
         if !data.is_empty() {
+            self.power.note_pty_activity();
+            // WebKit is SIGSTOPped: keep the output in a bounded buffer and
+            // replay it when the UI thaws. Otherwise Tauri's event queue would
+            // grow for every byte a hidden build/test prints.
+            if self.power.is_hard_frozen() {
+                self.power.buffer_pty(&id, data);
+                return;
+            }
             let event_name = format!("data-{}", id);
             if let Err(e) = self.app_handle.emit(&event_name, data) {
                 error!("Fail to send {} data. Error: {}", event_name, e);
@@ -85,7 +100,7 @@ impl EventProcessor {
     }
 
     fn handle_close(&self, id: String, exit_code: Option<u32>) {
-        trace!("Exit status {:?}. Id: {}", &exit_code, &id);
+        trace!("Exit status {:?}. Id: {}", exit_code, id);
         if let Err(e) = self.app_handle.emit(DESTROY_TERMINAL, id) {
             error!("Fail to send {} event. Error: {}", DESTROY_TERMINAL, e);
         }

@@ -185,9 +185,11 @@ impl PtyCwdWatcher {
 
         tauri::async_runtime::spawn(async move {
             let mut prev_cwd: Option<String> = None;
+            let mut ticks: u64 = 0;
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
             loop {
                 interval.tick().await;
+                ticks = ticks.wrapping_add(1);
 
                 let current_pid = pid.load(atomic::Ordering::Relaxed);
                 if current_pid == -1 {
@@ -218,14 +220,16 @@ impl PtyCwdWatcher {
                                 }
                                 Err(e) => error!("Fail to watch path: {}. Error: {}", cwd, e),
                             }
+                        } else if ticks.is_multiple_of(5) {
+                            // The first `files` event can race the webview
+                            // registering its listener. Rescan periodically so
+                            // a late listener still receives the directory.
+                            update_directory(PathBuf::from(&cwd));
                         }
                         continue;
                     }
                     Err(e) => {
-                        error!(
-                            "Fail to get cwd for pid {} with error: {}.",
-                            &current_pid, e
-                        );
+                        error!("Fail to get cwd for pid {} with error: {}.", current_pid, e);
                         continue;
                     }
                 }

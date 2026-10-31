@@ -1,10 +1,12 @@
 import { SmoothieChart, TimeSeries } from 'smoothie';
 import { createEffect, on, onCleanup, onMount } from 'solid-js';
+import { usePower } from '@/lib/power';
 import { useSystemData } from '@/lib/system';
 import { selectStyle, useTheme } from '@/lib/themes';
 
 function Load() {
 	const { theme } = useTheme();
+	const { active } = usePower();
 	const style = () => selectStyle(theme());
 	const systemData = useSystemData();
 
@@ -16,11 +18,14 @@ function Load() {
 		return d ? { cpu: d.cpu, gpu: d.gpu } : undefined;
 	};
 
+	const temp = (value?: number) =>
+		value && value > 0 ? `${value.toFixed(1)}°C` : '--';
+
 	const charts: SmoothieChart[] = Array.from(
 		{ length: 2 },
 		() =>
 			new SmoothieChart({
-				limitFPS: 30,
+				limitFPS: 12,
 				responsive: true,
 				millisPerPixel: 50,
 				grid: {
@@ -44,9 +49,29 @@ function Load() {
 	};
 
 	onMount(() => {
-		charts[0].streamTo(cpuCanvas, 1000);
-		charts[1].streamTo(gpuCanvas, 1000);
+		if (active()) {
+			charts[0].streamTo(cpuCanvas, 1000);
+			charts[1].streamTo(gpuCanvas, 1000);
+		}
 	});
+
+	createEffect(
+		on(
+			active,
+			active => {
+				if (!cpuCanvas || !gpuCanvas) {
+					return;
+				}
+				if (active) {
+					charts[0].streamTo(cpuCanvas, 1000);
+					charts[1].streamTo(gpuCanvas, 1000);
+				} else {
+					charts.forEach(o => o.stop());
+				}
+			},
+			{ defer: true },
+		),
+	);
 
 	onCleanup(() => {
 		charts.forEach(o => o.stop());
@@ -102,7 +127,7 @@ function Load() {
 			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
 				<div class="flex flex-col items-start justify-around">
 					<span class="font-united_sans_medium sm:text-xxxs md:text-xxs font-semibold not-italic lg:text-sm xl:text-lg">
-						CPU - {data()?.cpu.temperature.toFixed(1) || '--'}°C
+						CPU - {temp(data()?.cpu.temperature)}
 					</span>
 					<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-base xl:text-lg">
 						Avg. {data()?.cpu.load.toFixed(1) || '--'}%
@@ -117,7 +142,7 @@ function Load() {
 			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
 				<div class="flex flex-col items-start justify-around">
 					<span class="font-united_sans_medium sm:text-xxxs md:text-xxs font-semibold not-italic lg:text-sm xl:text-lg">
-						GPU - {data()?.gpu.temperature.toFixed(1) || '--'}°C
+						GPU - {temp(data()?.gpu.temperature)}
 					</span>
 					<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-base xl:text-lg">
 						Avg. {data()?.gpu.load.toFixed(1) || '--'}%

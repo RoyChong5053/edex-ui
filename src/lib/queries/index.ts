@@ -8,9 +8,11 @@ export const ipInformationQueryOptions = (enabled: boolean) =>
 	queryOptions({
 		queryKey: ['ipInfo'],
 		queryFn: getIPInformation,
-		refetchInterval: 5000,
+		// Geolocation does not change every few seconds. Cache it for 30 min
+		// instead of hitting ip-api.com 12 times a minute.
+		refetchInterval: 30 * 60 * 1000,
 		refetchIntervalInBackground: false,
-		refetchOnWindowFocus: true,
+		refetchOnWindowFocus: false,
 		retry: false,
 		enabled,
 	});
@@ -59,9 +61,9 @@ export const latencyQueryOptions = (enabled: boolean) =>
 	queryOptions({
 		queryKey: ['latency'],
 		queryFn: getNetworkLatency,
-		refetchInterval: 1000,
+		refetchInterval: 5000,
 		refetchIntervalInBackground: false,
-		refetchOnWindowFocus: true,
+		refetchOnWindowFocus: false,
 		enabled,
 		retry: false,
 	});
