@@ -41,6 +41,18 @@ function TopBar() {
 		return `${formatTime(d.getHours())}:${formatTime(d.getMinutes())}:${formatTime(d.getSeconds())}`;
 	};
 
+	const uptime = () => {
+		const u = systemData()?.uptime ?? 0;
+		const days = Math.floor(u / 86400);
+		const hours = Math.floor((u % 86400) / 3600);
+		const minutes = Math.floor((u % 3600) / 60);
+		const parts: string[] = [];
+		if (days) parts.push(`${days}d`);
+		parts.push(`${hours}h`);
+		parts.push(`${minutes}m`);
+		return parts.join(' ');
+	};
+
 	const day = () => {
 		const d = date();
 		return `${d.getFullYear()}.${formatTime(d.getMonth() + 1)}.${formatTime(d.getDate())}`;
@@ -76,6 +88,7 @@ function TopBar() {
 			<div class="topbar-clock">
 				<span class="topbar-time">{clock()}</span>
 				<span class="topbar-date">{day()}</span>
+				<span class="topbar-uptime">UPTIME {uptime()}</span>
 			</div>
 
 			<div class="topbar-stats">

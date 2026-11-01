@@ -1,6 +1,5 @@
 import { type Event, listen } from '@tauri-apps/api/event';
 import prettyBytes from 'pretty-bytes';
-import { SmoothieChart, TimeSeries } from 'smoothie';
 import {
 	createEffect,
 	createSignal,
@@ -19,6 +18,12 @@ type NetworkTrafficProps = {
 	connected: () => boolean;
 };
 
+// Rolling window of samples and throttled redraw rate. We draw manually to a
+// canvas only when new traffic arrives (capped ~4fps), instead of Smoothie's
+// continuous requestAnimationFrame loop — the big CPU win on this Atom.
+const HISTORY_LEN = 120;
+const REDRAW_MS = 250;
+
 function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 	const { theme } = useTheme();
 	const { active } = usePower();
@@ -33,97 +38,124 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 		setTraffic(e.payload),
 	);
 
-	const charts: SmoothieChart[] = Array.from(
-		{ length: 2 },
-		(_, i) =>
-			new SmoothieChart({
-				limitFPS: 12,
-				responsive: true,
-				millisPerPixel: 70,
-				interpolation: 'linear',
-				grid: {
-					millisPerLine: 5000,
-					fillStyle: 'transparent',
-					strokeStyle: style().colors.main,
-					verticalSections: 3,
-					borderVisible: false,
-				},
-				labels: {
-					fontSize: 10,
-					fillStyle: style().colors.main,
-					precision: 2,
-				},
-				minValue: i === 0 ? 0 : undefined,
-				maxValue: i === 1 ? 0 : undefined,
-			}),
-	);
+	// Rolling buffers of recent samples (KB/s).
+	const upBuf: number[] = Array(HISTORY_LEN).fill(0);
+	const downBuf: number[] = Array(HISTORY_LEN).fill(0);
 
-	const timeSeriesOptions = {
-		lineWidth: 1.7,
-		strokeStyle: style().colors.main,
+	let rafId = 0;
+	let lastDraw = 0;
+	let drawing = false;
+
+	const sizeCanvas = (canvas: HTMLCanvasElement) => {
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+			canvas.width = w;
+			canvas.height = h;
+		}
 	};
 
-	const series: TimeSeries[] = [new TimeSeries(), new TimeSeries()];
+	const drawLine = (
+		canvas: HTMLCanvasElement,
+		buf: number[],
+		positive: boolean,
+	) => {
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+		const w = canvas.width;
+		const h = canvas.height;
+		ctx.clearRect(0, 0, w, h);
+		if (w === 0 || h === 0) return;
 
-	charts.forEach((v, i) => v.addTimeSeries(series[i], timeSeriesOptions));
+		const color = style().colors.main;
+		ctx.strokeStyle = color;
+		ctx.lineWidth = 1;
+
+		const max = Math.max(1, ...buf);
+		const step = w / (HISTORY_LEN - 1);
+		const mid = h / 2;
+		const amp = h * 0.45;
+
+		ctx.beginPath();
+		for (let i = 0; i < buf.length; i++) {
+			const v = buf[i] / max; // 0..1
+			const x = i * step;
+			const y = positive ? mid - amp * v : mid + amp * v;
+			if (i === 0) ctx.moveTo(x, y);
+			else ctx.lineTo(x, y);
+		}
+		ctx.stroke();
+	};
+
+	const draw = () => {
+		rafId = 0;
+		drawing = false;
+		lastDraw = performance.now();
+		if (active() && props.connected() && uploadCanvas && downloadCanvas) {
+			sizeCanvas(uploadCanvas);
+			sizeCanvas(downloadCanvas);
+			drawLine(uploadCanvas, upBuf, true);
+			drawLine(downloadCanvas, downBuf, false);
+		}
+	};
+
+	const scheduleDraw = () => {
+		if (drawing) {
+			return;
+		}
+		const now = performance.now();
+		if (now - lastDraw < REDRAW_MS) {
+			return;
+		}
+		drawing = true;
+		rafId = requestAnimationFrame(draw);
+	};
 
 	onMount(() => {
-		if (active()) {
-			charts[0].streamTo(uploadCanvas, 1000);
-			charts[1].streamTo(downloadCanvas, 1000);
-		}
+		const sync = () => {
+			sizeCanvas(uploadCanvas);
+			sizeCanvas(downloadCanvas);
+		};
+		sync();
+		const ro = new ResizeObserver(sync);
+		if (uploadCanvas) ro.observe(uploadCanvas);
+		if (downloadCanvas) ro.observe(downloadCanvas);
 	});
 
-	// YIELD / SLEEP: stop Smoothie's requestAnimationFrame loop entirely.
-	// This is the single biggest CPU saving in the dashboard on this Atom.
+	// Re-draw when the panel activates or connectivity changes.
 	createEffect(
-		on(
-			active,
-			active => {
-				if (!uploadCanvas || !downloadCanvas) {
-					return;
-				}
-				if (active) {
-					charts[0].streamTo(uploadCanvas, 1000);
-					charts[1].streamTo(downloadCanvas, 1000);
-				} else {
-					charts.forEach(o => o.stop());
-				}
-			},
-			{ defer: true },
-		),
+		on([active, () => props.connected()], ([a, c]) => {
+			if (a && c && uploadCanvas && downloadCanvas) {
+				lastDraw = 0;
+				scheduleDraw();
+			}
+		}),
+	);
+
+	createEffect(
+		on(traffic, t => {
+			if (!t) return;
+			upBuf.shift();
+			upBuf.push(t.transmitted / 1024);
+			downBuf.shift();
+			downBuf.push(t.received / 1024);
+			scheduleDraw();
+		}),
+	);
+
+	createEffect(
+		on(theme, () => {
+			if (active() && props.connected() && uploadCanvas && downloadCanvas) {
+				lastDraw = 0;
+				scheduleDraw();
+			}
+		}),
 	);
 
 	onCleanup(() => {
 		unListen.then(f => f()).catch(errorLog);
-		charts.forEach(o => o.stop());
+		if (rafId) cancelAnimationFrame(rafId);
 	});
-
-	createEffect(
-		on(theme, () => {
-			const color = style().colors.main;
-			for (const chart of charts) {
-				if (chart.options.grid) chart.options.grid.strokeStyle = color;
-				if (chart.options.labels) chart.options.labels.fillStyle = color;
-				for (const s of series) {
-					const opts = chart.getTimeSeriesOptions(s);
-					if (opts) opts.strokeStyle = color;
-				}
-			}
-		}),
-	);
-
-	createEffect(
-		on(traffic, traffic => {
-			if (!traffic || !props.connected()) {
-				return;
-			}
-
-			const timestamp = Date.now();
-			series[0].append(timestamp, traffic.transmitted / 1024);
-			series[1].append(timestamp, -traffic.received / 1024);
-		}),
-	);
 
 	return (
 		<div class="font-united_sans_light flex w-full flex-col items-start justify-around pb-1 text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">

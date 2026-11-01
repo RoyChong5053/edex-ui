@@ -237,19 +237,19 @@ fn default_config() -> ClusterConfig {
             },
             NodeConfig {
                 name: "Dell M6400".into(),
-                host: "192.168.100.20".into(),
+                host: "192.168.100.78".into(),
                 wan: false,
                 local: false,
             },
             NodeConfig {
                 name: "GT20".into(),
-                host: "192.168.100.147".into(),
+                host: "192.168.100.242".into(),
                 wan: false,
                 local: false,
             },
             NodeConfig {
                 name: "LG-V35".into(),
-                host: "192.168.100.94".into(),
+                host: "192.168.100.17".into(),
                 wan: false,
                 local: false,
             },

@@ -202,6 +202,106 @@
 		--color-stroke: rgb(3, 169, 244);
 		--color-shade: #bfbfbf;
 	}
+
+	html[data-theme="gruvbox"] {
+		/*background*/
+		--bg-main: 29 32 33;
+		--bg-secondary: 60 56 54;
+		--bg-active: 243 156 18;
+		--bg-hover: 243 156 18;
+
+		/* border */
+		--border-default: 243 156 18;
+
+		/* text */
+		--text-main: 243 156 18;
+		--text-active: 29 32 33;
+		--text-hover: 29 32 33;
+
+		/* colors */
+		--color-stroke: rgb(243, 156, 18);
+		--color-shade: #3c3836;
+	}
+
+	html[data-theme="nord"] {
+		/*background*/
+		--bg-main: 46 52 64;
+		--bg-secondary: 59 66 82;
+		--bg-active: 129 161 193;
+		--bg-hover: 129 161 193;
+
+		/* border */
+		--border-default: 129 161 193;
+
+		/* text */
+		--text-main: 129 161 193;
+		--text-active: 46 52 64;
+		--text-hover: 46 52 64;
+
+		/* colors */
+		--color-stroke: rgb(129, 161, 193);
+		--color-shade: #3b4252;
+	}
+
+	html[data-theme="kanagawa"] {
+		/*background*/
+		--bg-main: 22 20 31;
+		--bg-secondary: 13 12 13;
+		--bg-active: 123 167 155;
+		--bg-hover: 123 167 155;
+
+		/* border */
+		--border-default: 123 167 155;
+
+		/* text */
+		--text-main: 123 167 155;
+		--text-active: 22 20 31;
+		--text-hover: 22 20 31;
+
+		/* colors */
+		--color-stroke: rgb(123, 167, 155);
+		--color-shade: #16141f;
+	}
+
+	html[data-theme="catppuccin"] {
+		/*background*/
+		--bg-main: 30 30 46;
+		--bg-secondary: 49 50 68;
+		--bg-active: 137 183 255;
+		--bg-hover: 137 183 255;
+
+		/* border */
+		--border-default: 137 183 255;
+
+		/* text */
+		--text-main: 137 183 255;
+		--text-active: 30 30 46;
+		--text-hover: 30 30 46;
+
+		/* colors */
+		--color-stroke: rgb(137, 183, 255);
+		--color-shade: #313244;
+	}
+
+	html[data-theme="mono"] {
+		/*background*/
+		--bg-main: 5 7 5;
+		--bg-secondary: 0 0 0;
+		--bg-active: 57 255 20;
+		--bg-hover: 57 255 20;
+
+		/* border */
+		--border-default: 57 255 20;
+
+		/* text */
+		--text-main: 57 255 20;
+		--text-active: 5 7 5;
+		--text-hover: 5 7 5;
+
+		/* colors */
+		--color-stroke: rgb(57, 255, 20);
+		--color-shade: #0a120a;
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -362,6 +462,12 @@ body {
 .topbar-date {
 	font-size: clamp(8px, 1vh, 12px);
 	opacity: 0.55;
+}
+
+.topbar-uptime {
+	font-size: clamp(7px, 0.85vh, 10px);
+	opacity: 0.4;
+	letter-spacing: 0.12em;
 }
 
 .topbar-stats {
