@@ -16,6 +16,7 @@ use crate::sys::main::SystemMonitor;
 use crate::tmux::TmuxMonitor;
 
 mod audio;
+mod bluetooth;
 mod cluster;
 mod event;
 mod power;
@@ -28,6 +29,27 @@ async fn kernel_version() -> Result<String, String> {
     System::kernel_version()
         .map(|v| v.chars().take_while(|&ch| ch != '-').collect::<String>())
         .ok_or_else(|| "Failed to get kernel version".to_string())
+}
+
+/// Toggle the power / idle-freeze state from the frontend. Backs the
+/// "Freeze / Wake" keyboard shortcut so the user can instantly park the
+/// always-animating webview (the biggest CPU lever on this Atom).
+#[tauri::command]
+async fn power_toggle(power: tauri::State<'_, std::sync::Arc<PowerManager>>) -> Result<(), String> {
+    power.toggle();
+    Ok(())
+}
+
+/// Retune the idle-freeze timeout from the settings UI. `0` disables
+/// auto-freeze. This is the user-facing lever for the biggest CPU cost:
+/// a shorter timeout parks the always-animating webview sooner.
+#[tauri::command]
+async fn power_set_idle_timeout(
+    power: tauri::State<'_, std::sync::Arc<PowerManager>>,
+    idle_timeout_secs: u64,
+) -> Result<(), String> {
+    power.set_idle_timeout(idle_timeout_secs);
+    Ok(())
 }
 
 fn main() {
@@ -76,7 +98,19 @@ fn main() {
                 .expect("no main window")
                 .set_focus();
         }))
-        .invoke_handler(tauri::generate_handler![kernel_version, audio::audio_state, audio::audio_set_volume, audio::audio_set_mute])
+        .invoke_handler(tauri::generate_handler![
+            kernel_version,
+            audio::audio_state,
+            audio::audio_set_volume,
+            audio::audio_set_mute,
+            power_toggle,
+            power_set_idle_timeout,
+            bluetooth::bluetooth_state,
+            bluetooth::bluetooth_set_powered,
+            bluetooth::bluetooth_set_discoverable,
+            bluetooth::bluetooth_connect,
+            bluetooth::bluetooth_disconnect
+        ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(focused) = event {
                 if let Some(power) = window
@@ -93,7 +127,7 @@ fn main() {
             // Presence / power state machine. Keep this alive for the whole
             // process: the control socket, idle watcher and focus handler all
             // share it.
-            let power = PowerManager::new(app.handle().clone(), 600);
+            let power = PowerManager::new(app.handle().clone(), 300);
             app.manage(power.clone());
             power.start();
 

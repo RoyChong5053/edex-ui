@@ -1,11 +1,14 @@
+import { invoke } from '@tauri-apps/api/core';
 import { type Event, listen } from '@tauri-apps/api/event';
 import {
 	createContext,
 	createSignal,
 	onCleanup,
+	onMount,
 	type ParentComponent,
 	useContext,
 } from 'solid-js';
+import { getIdleTimeoutSecs } from '@/lib/setting';
 import { errorLog } from '@/lib/log';
 
 export type PowerState = 'active' | 'yield' | 'sleep';
@@ -24,6 +27,16 @@ function useProviderValue() {
 
 	const unListenShowcase = listen('showcase', (event: Event<boolean>) => {
 		setShowcase(event.payload);
+	});
+
+	onMount(() => {
+		// Apply the user's auto-freeze timeout to the backend once at startup so
+		// the biggest CPU lever honours their settings from the first tick.
+		void getIdleTimeoutSecs().then(secs => {
+			void invoke('power_set_idle_timeout', { idleTimeoutSecs: secs }).catch(
+				errorLog,
+			);
+		});
 	});
 
 	onCleanup(() => {

@@ -1,5 +1,7 @@
 import AudioControl from '@/components/setting/audio';
+import BluetoothControl from '@/components/setting/bluetooth';
 import ChangeThemeSelection from '@/components/setting/theme';
+import PowerControl from '@/components/setting/power';
 import { closeModal } from '@/lib/utils';
 
 export default function Setting() {
@@ -29,6 +31,9 @@ export default function Setting() {
 						</div>
 						<div class="my-1 flex flex-col gap-2">
 							<AudioControl />
+						</div>
+						<div class="my-1 flex flex-col gap-2">
+							<BluetoothControl />
 						</div>
 						<h3 class="text-main font-semibold uppercase sm:text-3xl md:text-5xl lg:text-7xl xl:text-9xl">
 							Shortcuts
@@ -64,8 +69,11 @@ export default function Setting() {
 							</div>
 							<div class="text-main flex flex-row flex-nowrap justify-between">
 								<span>Freeze / Wake</span>
-								<span class="capitalize">edex-ctl toggle</span>
+								<span class="capitalize">Ctrl + Shift + f</span>
 							</div>
+						</div>
+						<div class="my-2 flex flex-col gap-2">
+							<PowerControl />
 						</div>
 					</div>
 				</div>

@@ -55,7 +55,9 @@ pub struct PowerManager {
     web_pids: Mutex<Vec<u32>>,
     pty_buffers: Mutex<HashMap<String, Vec<u8>>>,
     showcase: AtomicBool,
-    idle_timeout_ms: u64,
+    // Volatile so the settings UI can retune the timeout at runtime without
+    // racing the idle loop that reads it.
+    idle_timeout_ms: AtomicU64,
 }
 
 impl PowerManager {
@@ -72,8 +74,21 @@ impl PowerManager {
             web_pids: Mutex::new(Vec::new()),
             pty_buffers: Mutex::new(HashMap::new()),
             showcase: AtomicBool::new(false),
-            idle_timeout_ms: idle_timeout_secs.saturating_mul(1000),
+            idle_timeout_ms: AtomicU64::new(idle_timeout_secs.saturating_mul(1000)),
         })
+    }
+
+    /// Retune the idle-freeze timeout at runtime. Called from the settings UI.
+    /// `0` disables auto-freeze entirely. Values are clamped to at most one
+    /// hour so a stray input can't leave the box rendering indefinitely.
+    pub fn set_idle_timeout(&self, idle_timeout_secs: u64) {
+        let secs = idle_timeout_secs.min(3600);
+        self.idle_timeout_ms.store(secs.saturating_mul(1000), Ordering::Relaxed);
+        if secs == 0 {
+            info!("idle-freeze disabled (auto-freeze off)");
+        } else {
+            info!("idle-freeze timeout -> {secs}s");
+        }
     }
 
     pub fn start(self: &Arc<Self>) {
@@ -110,6 +125,19 @@ impl PowerManager {
         self.state() == PowerState::Active
     }
 
+    /// Toggle between an explicit freeze and waking up. This is the backend
+    /// behind the "Freeze / Wake" keyboard shortcut: when already active it
+    /// freezes immediately (surviving focus changes via the manual-hold flag);
+    /// otherwise it wakes, treating the keypress like a fresh input event.
+    pub fn toggle(&self) {
+        if self.is_active() {
+            self.manual_freeze();
+        } else {
+            self.focused.store(true, Ordering::Relaxed);
+            self.activate("key-toggle");
+        }
+    }
+
     pub fn note_pty_activity(&self) {
         self.last_pty_activity_ms.store(now_ms(), Ordering::Relaxed);
     }
@@ -121,7 +149,7 @@ impl PowerManager {
                 return;
             }
             let idle = read_idle_ms().unwrap_or(0);
-            if idle < self.idle_timeout_ms {
+            if idle < self.idle_timeout_ms.load(Ordering::Relaxed) {
                 self.activate("focus");
             } else if self.state() == PowerState::Active {
                 // The window got focus, but the user has not touched the
@@ -312,7 +340,7 @@ impl PowerManager {
 
             let hold = self.manual_hold.load(Ordering::Relaxed);
 
-            if idle >= self.idle_timeout_ms {
+            if idle >= self.idle_timeout_ms.load(Ordering::Relaxed) {
                 // Give a freshly summoned cockpit a minute to be looked at
                 // before the idle timeout can put it back to sleep.
                 let since_transition =
@@ -454,6 +482,7 @@ impl PowerManager {
             "web_pids": self.web_pids.lock().unwrap().len(),
             "idle_ms": read_idle_ms(),
             "pty_idle_ms": pty_idle,
+            "idle_timeout_ms": self.idle_timeout_ms.load(Ordering::Relaxed),
         })
         .to_string()
     }

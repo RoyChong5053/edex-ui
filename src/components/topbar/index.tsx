@@ -1,6 +1,7 @@
 import { createDateNow } from '@solid-primitives/date';
 import { createShortcut } from '@solid-primitives/keyboard';
 import { type Event, listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import prettyBytes from 'pretty-bytes';
 import { createSignal, onCleanup } from 'solid-js';
 import { errorLog } from '@/lib/log';
@@ -75,6 +76,13 @@ function TopBar() {
 		preventDefault: true,
 	});
 	createShortcut(['Control', 'Shift', 'KeyY'], () => launch('yazi'), {
+		preventDefault: true,
+	});
+	// Freeze / Wake: instantly park the always-animating webview (the biggest
+	// CPU lever on this Atom) and wake it back up. Backed by the power toggle.
+	createShortcut(['Control', 'Shift', 'KeyF'], () => {
+		void invoke('power_toggle').catch(errorLog);
+	}, {
 		preventDefault: true,
 	});
 
