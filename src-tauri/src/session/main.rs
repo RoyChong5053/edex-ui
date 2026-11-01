@@ -1,7 +1,6 @@
 use crate::event::main::ProcessEvent;
-use crate::file::main::{DirectoryWatcherEvent, WatcherPayload};
 use dashmap::DashMap;
-use log::error;
+use log::{error, warn};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -40,8 +39,44 @@ static SESSION_THREAD_COUNTER: AtomicU64 = AtomicU64::new(0);
 ///      leak into the child shell (same approach as VSCode's
 ///      `sanitizeProcessEnvironment` + `removeDangerousEnvVariables`),
 ///   2. set terminal-identity vars last so they override anything inherited.
-fn construct_cmd() -> CommandBuilder {
-    let mut cmd = CommandBuilder::new_default_prog();
+fn is_valid_tmux_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+}
+
+fn construct_cmd(preset: Option<&str>) -> CommandBuilder {
+    // `new_default_prog()` forbids appending arguments (portable-pty panics
+    // with "attempted to add args to a default_prog builder"), so preset
+    // launch commands need an explicitly resolved shell.
+    let mut cmd = match preset {
+        Some(_) => {
+            CommandBuilder::new(std::env::var_os("SHELL").unwrap_or_else(|| "/bin/sh".into()))
+        }
+        None => CommandBuilder::new_default_prog(),
+    };
+
+    if let Some(preset) = preset {
+        match preset {
+            "yazi" => {
+                cmd.arg("-lc");
+                cmd.arg("exec yazi");
+            }
+            value if value.starts_with("tmux:") => {
+                let name = &value["tmux:".len()..];
+                if is_valid_tmux_name(name) {
+                    cmd.arg("-lc");
+                    cmd.arg(format!("exec tmux attach -t '{name}'"));
+                } else {
+                    warn!("Refusing to launch tmux session with invalid name: {name:?}");
+                }
+            }
+            value => {
+                warn!("Refusing to launch unknown terminal preset: {value:?}");
+            }
+        }
+    }
 
     // Strip vars inherited from the Tauri/WebKit parent process that either
     // leak bundle internals into the user's shell or can crash child
@@ -88,13 +123,12 @@ enum PtySessionCommand {
     Exit,
 }
 
-struct PtySession {
-    pid: i32,
-}
+struct PtySession;
 
 impl PtySession {
     pub fn new<F>(
         id: &str,
+        preset: Option<String>,
         process_event_sender: mpsc::UnboundedSender<ProcessEvent>,
         app_handle: AppHandle,
         cleanup: F,
@@ -113,7 +147,7 @@ impl PtySession {
         let pty_pair = pty_system.openpty(pty_size)?;
 
         // Spawn the child process
-        let cmd = construct_cmd();
+        let cmd = construct_cmd(preset.as_deref());
         let mut child = pty_pair.slave.spawn_command(cmd)?;
 
         // Release any handles owned by the slave: we don't need it now
@@ -125,7 +159,7 @@ impl PtySession {
         // Intentional panic: if the PTY master cannot provide a process group
         // leader PID after a successful spawn, the session is fundamentally
         // broken and no recovery is possible.
-        let pid = master.process_group_leader().expect("Fail to get pid.");
+        let _pid = master.process_group_leader().expect("Fail to get pid.");
 
         // Get reader and writer from master
         let mut reader = master.try_clone_reader()?;
@@ -242,35 +276,32 @@ impl PtySession {
             })
             .expect("failed to spawn pty waiter thread");
 
-        Ok(Self { pid })
-    }
-
-    pub fn pid(&self) -> i32 {
-        self.pid
+        Ok(Self)
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 enum PtySessionManagerCommand {
-    Initialize { id: String },
-    Switch { id: String },
+    Initialize {
+        id: String,
+        #[serde(default)]
+        preset: Option<String>,
+    },
+    Switch {
+        id: String,
+    },
 }
 
 pub struct PtySessionManager {
     process_event_sender: mpsc::UnboundedSender<ProcessEvent>,
-    directory_file_watcher_event_sender: mpsc::UnboundedSender<DirectoryWatcherEvent>,
     active_sessions: Arc<DashMap<String, PtySession>>,
 }
 
 impl PtySessionManager {
-    pub fn new(
-        process_event_sender: mpsc::UnboundedSender<ProcessEvent>,
-        directory_file_watcher_event_sender: mpsc::UnboundedSender<DirectoryWatcherEvent>,
-    ) -> Self {
+    pub fn new(process_event_sender: mpsc::UnboundedSender<ProcessEvent>) -> Self {
         Self {
             process_event_sender,
-            directory_file_watcher_event_sender,
             active_sessions: Arc::new(DashMap::new()),
         }
     }
@@ -278,22 +309,21 @@ impl PtySessionManager {
     pub fn start(&mut self, app_handle: AppHandle) {
         let active_sessions = self.active_sessions.clone();
         let process_event_sender = self.process_event_sender.clone();
-        let directory_file_watcher_sender = self.directory_file_watcher_event_sender.clone();
         let app_handle_clone = app_handle.clone();
 
         app_handle.listen("manager", move |event| {
             match serde_json::from_str::<PtySessionManagerCommand>(event.payload()) {
-                Ok(PtySessionManagerCommand::Initialize { id }) => {
+                Ok(PtySessionManagerCommand::Initialize { id, preset }) => {
                     Self::spawn_pty(
                         &id,
+                        preset,
                         &active_sessions,
                         &process_event_sender,
-                        &directory_file_watcher_sender,
                         &app_handle_clone,
                     );
                 }
                 Ok(PtySessionManagerCommand::Switch { id }) => {
-                    Self::switch_session(&id, &active_sessions, &directory_file_watcher_sender);
+                    Self::switch_session(&id, &active_sessions);
                 }
                 Err(e) => {
                     error!("Failed to parse command for session manager: {:?}", e);
@@ -304,29 +334,21 @@ impl PtySessionManager {
 
     fn spawn_pty(
         id: &str,
+        preset: Option<String>,
         active_sessions: &Arc<DashMap<String, PtySession>>,
         process_event_sender: &mpsc::UnboundedSender<ProcessEvent>,
-        directory_file_watcher_sender: &mpsc::UnboundedSender<DirectoryWatcherEvent>,
         app_handle: &AppHandle,
     ) {
         let active_sessions_inner = active_sessions.clone();
-        let directory_watcher_inner = directory_file_watcher_sender.clone();
         let id_for_cleanup = id.to_owned();
         let app_handle_for_cleanup = app_handle.clone();
 
         let pty_session_result = PtySession::new(
             id,
+            preset,
             process_event_sender.clone(),
             app_handle.clone(),
             move || {
-                if let Err(e) =
-                    directory_watcher_inner.send(DirectoryWatcherEvent::Watch { initial: None })
-                {
-                    error!(
-                        "Fail to send directory update event on session close. {:?}",
-                        e
-                    )
-                }
                 active_sessions_inner.remove(&id_for_cleanup);
 
                 // user closed all sessions, we should exit the app now.
@@ -341,14 +363,7 @@ impl PtySessionManager {
                 if active_sessions.contains_key(id) {
                     error!("Session {} already exists, overwriting", id);
                 }
-                let pid = pty_session.pid();
                 active_sessions.insert(id.to_owned(), pty_session);
-
-                if let Err(e) = directory_file_watcher_sender.send(DirectoryWatcherEvent::Watch {
-                    initial: Some(WatcherPayload::new(pid)),
-                }) {
-                    error!("Fail to send directory update event. {:?}", e);
-                }
             }
             Err(e) => {
                 error!("Failed to initialize new session: {:?}", e);
@@ -356,22 +371,9 @@ impl PtySessionManager {
         }
     }
 
-    fn switch_session(
-        id: &str,
-        active_sessions: &Arc<DashMap<String, PtySession>>,
-        directory_file_watcher_sender: &mpsc::UnboundedSender<DirectoryWatcherEvent>,
-    ) {
-        match active_sessions.get(id) {
-            Some(pty_session) => {
-                if let Err(e) = directory_file_watcher_sender.send(DirectoryWatcherEvent::Watch {
-                    initial: Some(WatcherPayload::new(pty_session.pid())),
-                }) {
-                    error!("Fail to send directory update event. {:?}", e);
-                }
-            }
-            None => {
-                error!("Session {} not found on switching", id);
-            }
+    fn switch_session(id: &str, active_sessions: &Arc<DashMap<String, PtySession>>) {
+        if !active_sessions.contains_key(id) {
+            error!("Session {} not found on switching", id);
         }
     }
 }

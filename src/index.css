@@ -296,8 +296,7 @@ body {
 }
 
 .topbar,
-.main-row,
-.bottom-row {
+.main-row {
 	position: relative;
 	z-index: 1;
 }
@@ -380,11 +379,34 @@ body {
 	opacity: 0.5;
 }
 
+.topbar-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.35vw;
+}
+
+.topbar-action {
+	padding: 0.3vh 0.6vw;
+	border: 1px solid rgb(var(--border-default) / 0.45);
+	background: rgb(var(--bg-secondary) / 0.35);
+	color: rgb(var(--text-main) / 0.85);
+	font: inherit;
+	font-size: clamp(10px, 1.15vh, 14px);
+	letter-spacing: 0.14em;
+	line-height: 1.25;
+	cursor: pointer;
+}
+
+.topbar-action:hover {
+	border-color: rgb(var(--text-main) / 0.8);
+	background: rgb(var(--text-main) / 0.12);
+	color: rgb(var(--text-main));
+}
+
 .topbar-badges {
 	display: flex;
 	align-items: center;
 	gap: 0.45vw;
-	min-width: 15vw;
 	justify-content: flex-end;
 }
 
@@ -422,217 +444,230 @@ body {
 
 .main-row {
 	display: flex;
-	flex: 0 0 60.3vh;
-	min-height: 0;
-	overflow: hidden;
-}
-
-.bottom-row {
-	display: flex;
 	flex: 1 1 auto;
 	min-height: 0;
 	overflow: hidden;
-	border-top: 1px solid rgb(var(--border-default) / 0.35);
 	transition:
 		opacity 0.22s ease,
 		transform 0.22s ease;
 }
 
-.main-row {
-	transition:
-		opacity 0.22s ease,
-		transform 0.22s ease;
-}
-
-.power-yield .main-row,
-.power-yield .bottom-row {
+.power-yield .main-row {
 	opacity: 0.42;
 	transform: scale(0.985);
 }
 
-.power-sleep .main-row,
-.power-sleep .bottom-row {
+.power-sleep .main-row {
 	opacity: 0.12;
 	transform: scale(0.98);
 }
 
-/* ------------------------------- keyboard ------------------------- */
+/* ------------------------------- cpu load ------------------------- */
 
-.keyboard-panel {
-	display: flex;
-	flex: 0 0 35%;
-	min-width: 0;
-	flex-direction: column;
-	justify-content: space-between;
-	padding: 1.1vh 1.2vw;
-	border-left: 1px solid rgb(var(--border-default) / 0.3);
-	background: linear-gradient(
-		180deg,
-		rgb(var(--border-default) / 0.04),
-		transparent 45%
-	);
-	letter-spacing: 0.1em;
+.cpu-core-row {
+	display: grid;
+	grid-template-columns: 2.2ch 1fr 4.5ch;
+	align-items: center;
+	gap: 0.6vw;
+	margin-top: 0.45vh;
+	font-size: clamp(9px, 1.05vh, 13px);
+	letter-spacing: 0.08em;
+}
+
+.cpu-core-label,
+.cpu-core-value {
+	opacity: 0.6;
+}
+
+.cpu-core-value {
+	text-align: right;
+}
+
+.cpu-core-track {
+	height: 0.95vh;
+	min-height: 6px;
+	border: 1px solid rgb(var(--border-default) / 0.35);
+	background: rgb(var(--bg-secondary) / 0.4);
 	overflow: hidden;
 }
 
-.keyboard-head {
+.cpu-core-fill {
+	height: 100%;
+	background: rgb(var(--text-main) / 0.8);
+	box-shadow: 0 0 6px rgb(var(--text-main) / 0.35);
+}
+
+/* ------------------------------- tmux ----------------------------- */
+
+.tmux-panel {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: 10vh;
+	flex-direction: column;
+	gap: 0.35vh;
+	padding-bottom: 0.4vh;
+	overflow: hidden;
+}
+
+.tmux-head {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	font-size: clamp(10px, 1.25vh, 15px);
-	opacity: 0.75;
 }
 
-.keyboard-last {
-	font-family: "united-sans-medium", sans-serif;
-	font-size: clamp(13px, 1.8vh, 22px);
+.tmux-row {
+	display: grid;
+	grid-template-columns: 1.2ch 1.4ch minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.55vw;
+	width: 100%;
+	padding: 0.18vh 0;
+	border: 0;
+	background: transparent;
+	color: rgb(var(--text-main) / 0.85);
+	font: inherit;
+	font-size: clamp(9px, 1.05vh, 13px);
+	letter-spacing: 0.06em;
+	text-align: left;
+	cursor: pointer;
+}
+
+.tmux-row:hover {
+	background: rgb(var(--text-main) / 0.1);
 	color: rgb(var(--text-main));
-	text-shadow: 0 0 9px rgb(var(--text-main) / 0.5);
 }
 
-.keyboard-mods {
-	display: flex;
-	gap: 0.5vw;
-	margin: 0.5vh 0;
-	font-size: clamp(8px, 0.95vh, 11px);
+.tmux-dot {
+	width: 0.8vh;
+	height: 0.8vh;
+	border: 1px solid rgb(var(--text-main) / 0.5);
 }
 
-.keyboard-mods span {
-	padding: 0.15vh 0.35vw;
-	border: 1px solid rgb(var(--border-default) / 0.22);
-	opacity: 0.35;
+.tmux-dot.attached {
+	background: rgb(var(--text-main) / 0.85);
 }
 
-.keyboard-mods span.on {
-	border-color: rgb(var(--text-main) / 0.8);
-	background: rgb(var(--text-main) / 0.16);
-	opacity: 1;
+.tmux-index {
+	opacity: 0.4;
 }
 
-.keyboard {
+.tmux-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tmux-meta {
+	opacity: 0.45;
+	white-space: nowrap;
+}
+
+.tmux-empty,
+.tmux-more {
+	font-size: clamp(9px, 1.05vh, 13px);
+	letter-spacing: 0.1em;
+	opacity: 0.4;
+}
+
+.tmux-empty {
+	padding: 0.8vh 0;
+}
+
+/* ------------------------------- cluster -------------------------- */
+
+.cluster-panel {
 	display: flex;
 	flex: 1 1 auto;
+	min-height: 12vh;
 	flex-direction: column;
-	gap: 0.42vh;
-	justify-content: center;
-	min-height: 0;
-}
-
-.kbd-row {
-	display: flex;
-	gap: 0.28vw;
-	min-height: 0;
-	flex: 1 1 0;
-}
-
-.kbd-key {
-	display: flex;
-	flex: 1 1 0;
-	align-items: center;
-	justify-content: center;
-	min-width: 0;
-	border: 1px solid rgb(var(--border-default) / 0.22);
-	background: rgb(var(--bg-secondary) / 0.35);
-	color: rgb(var(--text-main) / 0.78);
-	font-size: clamp(7px, 0.95vh, 11px);
-	line-height: 1;
-	letter-spacing: 0.02em;
-	transition:
-		background 80ms linear,
-		color 80ms linear,
-		box-shadow 80ms linear;
-}
-
-.kbd-key.kbd-down {
-	background: rgb(var(--text-main) / 0.85);
-	color: rgb(var(--bg-main));
-	box-shadow: 0 0 10px rgb(var(--text-main) / 0.55);
-}
-
-.keyboard-foot {
-	display: flex;
-	justify-content: space-between;
-	gap: 0.4vw;
-	font-size: clamp(7px, 0.85vh, 10px);
-	opacity: 0.38;
-	white-space: nowrap;
-	overflow: hidden;
-}
-
-/* ------------------------------- radar ---------------------------- */
-
-.radar-panel {
-	display: flex;
-	flex-direction: column;
-	height: 14vh;
 	padding: 0 0.5vw;
 	overflow: hidden;
 	letter-spacing: 0.1em;
 }
 
-.radar-head {
+.cluster-head {
 	display: flex;
 	justify-content: space-between;
+	padding-bottom: 0.45vh;
 	font-size: clamp(9px, 1.1vh, 14px);
 	opacity: 0.8;
 }
 
-.radar {
+.cluster-list {
+	display: flex;
 	flex: 1 1 auto;
+	flex-direction: column;
+	justify-content: space-around;
 	min-height: 0;
 }
 
-.radar-svg {
-	width: 100%;
-	height: 100%;
-	overflow: visible;
+.cluster-row {
+	display: grid;
+	grid-template-columns: 1.2ch minmax(0, 1fr) 6.2ch 7.5ch;
+	align-items: center;
+	gap: 0.45vw;
+	font-size: clamp(9px, 1.08vh, 14px);
+	line-height: 1.2;
 }
 
-.radar-ring,
-.radar-axis {
-	fill: none;
-	stroke: rgb(var(--border-default) / 0.28);
-	stroke-width: 0.5;
+.cluster-row.offline {
+	opacity: 0.45;
 }
 
-.radar-link {
-	stroke: rgb(var(--border-default) / 0.4);
-	stroke-width: 0.55;
-	stroke-dasharray: 2 2;
+.cluster-dot {
+	width: 0.8vh;
+	height: 0.8vh;
+	border: 1px solid rgb(var(--text-main) / 0.5);
 }
 
-.radar-sweep {
-	stroke: rgb(var(--text-main) / 0.55);
-	stroke-width: 0.8;
-	opacity: 0;
-	transform-origin: 100px 60px;
-	transform-box: view-box;
+.cluster-dot.online {
+	border-color: rgb(var(--text-main) / 0.9);
+	background: rgb(var(--text-main) / 0.85);
+	box-shadow: 0 0 4px rgb(var(--text-main) / 0.5);
 }
 
-.showcase .radar-sweep {
-	opacity: 1;
-	animation: radar-sweep 4s linear infinite;
+.cluster-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.radar-node {
-	fill: rgb(var(--text-main) / 0.65);
+.cluster-ms {
+	text-align: right;
+	white-space: nowrap;
 }
 
-.radar-node-me {
-	fill: rgb(var(--text-main));
-	filter: drop-shadow(0 0 3px rgb(var(--text-main) / 0.8));
+.cluster-ms.good {
+	opacity: 0.85;
 }
 
-.radar-label {
-	fill: rgb(var(--text-main) / 0.7);
-	font-size: 6px;
-	letter-spacing: 0.08em;
-	text-anchor: middle;
+.cluster-ms.warn {
+	color: rgb(255 180 84 / 0.9);
 }
 
-.radar-label-me {
-	fill: rgb(var(--text-main));
-	font-size: 7px;
+.cluster-ms.bad,
+.cluster-ms.offline {
+	color: rgb(255 100 100 / 0.9);
+}
+
+.cluster-spark {
+	overflow: hidden;
+	text-align: right;
+	white-space: nowrap;
+	letter-spacing: 0;
+}
+
+.spark-good {
+	opacity: 0.7;
+}
+
+.spark-warn {
+	color: rgb(255 180 84 / 0.9);
+}
+
+.spark-bad,
+.spark-offline {
+	color: rgb(255 100 100 / 0.9);
 }
 
 /* ------------------------------- boot ----------------------------- */
@@ -726,17 +761,7 @@ body {
 	}
 }
 
-@keyframes radar-sweep {
-	from {
-		transform: rotate(0deg);
-	}
-	to {
-		transform: rotate(360deg);
-	}
-}
-
 @media (prefers-reduced-motion: reduce) {
-	.showcase .radar-sweep,
 	.boot-skip {
 		animation: none;
 	}

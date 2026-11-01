@@ -1,7 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
-import { openPath } from '@tauri-apps/plugin-opener';
-import { errorLog } from '@/lib/log';
 
 type PtySessionCommand =
 	| { type: 'Write'; payload: { data: string } }
@@ -9,7 +7,7 @@ type PtySessionCommand =
 	| { type: 'Exit' };
 
 type PtyManagerCommand =
-	| { type: 'Initialize'; payload: { id: string } }
+	| { type: 'Initialize'; payload: { id: string; preset?: string } }
 	| { type: 'Switch'; payload: { id: string } };
 
 function emitSession(id: string, command: PtySessionCommand) {
@@ -18,14 +16,6 @@ function emitSession(id: string, command: PtySessionCommand) {
 
 function emitManager(command: PtyManagerCommand) {
 	return emit('manager', command);
-}
-
-export async function openFile(path: string) {
-	try {
-		await openPath(path);
-	} catch (e) {
-		await errorLog(`${e}. Path: ${path}`);
-	}
 }
 
 export async function getKernelVersion(): Promise<string> {
@@ -49,8 +39,11 @@ export async function writeToSession(id: string, data: string) {
  * Create a new terminal and return pid
  * @param id terminal index
  */
-export async function initializeSession(id: string) {
-	await emitManager({ type: 'Initialize', payload: { id } });
+export async function initializeSession(id: string, preset?: string) {
+	await emitManager({
+		type: 'Initialize',
+		payload: preset ? { id, preset } : { id },
+	});
 }
 
 export async function terminateSession(id: string) {

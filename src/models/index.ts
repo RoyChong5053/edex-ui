@@ -79,29 +79,31 @@ export interface DiskUsageStatus {
 	usage: number;
 }
 
-export const DIRECTORY = 'Directory';
-export const FILE = 'File';
-export const SYSTEM_LINK = 'SystemLink';
-export const SETTING = 'Setting';
-export const BACKWARD = 'Backward';
-
-export type FileType =
-	| typeof DIRECTORY
-	| typeof FILE
-	| typeof SYSTEM_LINK
-	| typeof SETTING
-	| typeof BACKWARD;
-
-export interface FileInfo {
+export interface ClusterNode {
 	name: string;
-	t: FileType;
-	path: string;
-	hidden: boolean;
+	host: string;
+	online: boolean;
+	latency: number | null;
+	history: (number | null)[];
+	wan: boolean;
+	local: boolean;
 }
 
-export interface FileSystemStatus {
-	path: string;
-	files: FileInfo[];
+export interface ClusterStatus {
+	nodes: ClusterNode[];
+	updated: number;
+}
+
+export interface TmuxSession {
+	name: string;
+	windows: number;
+	attached: boolean;
+	activity: number;
+}
+
+export interface TmuxStatus {
+	available: boolean;
+	sessions: TmuxSession[];
 }
 
 export type Style = {
@@ -142,5 +144,6 @@ export interface TerminalProps {
 
 export interface TerminalContainer {
 	id: string;
+	preset?: string;
 	terminal: () => JSXElement;
 }

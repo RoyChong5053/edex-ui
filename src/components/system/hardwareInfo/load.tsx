@@ -1,160 +1,50 @@
-import { SmoothieChart, TimeSeries } from 'smoothie';
-import { createEffect, on, onCleanup, onMount } from 'solid-js';
-import { usePower } from '@/lib/power';
+import { For } from 'solid-js';
 import { useSystemData } from '@/lib/system';
-import { selectStyle, useTheme } from '@/lib/themes';
 
 function Load() {
-	const { theme } = useTheme();
-	const { active } = usePower();
-	const style = () => selectStyle(theme());
 	const systemData = useSystemData();
 
-	let cpuCanvas!: HTMLCanvasElement;
-	let gpuCanvas!: HTMLCanvasElement;
-
-	const data = () => {
-		const d = systemData();
-		return d ? { cpu: d.cpu, gpu: d.gpu } : undefined;
-	};
+	const cpu = () => systemData()?.cpu;
 
 	const temp = (value?: number) =>
 		value && value > 0 ? `${value.toFixed(1)}°C` : '--';
 
-	const charts: SmoothieChart[] = Array.from(
-		{ length: 2 },
-		() =>
-			new SmoothieChart({
-				limitFPS: 12,
-				responsive: true,
-				millisPerPixel: 50,
-				grid: {
-					fillStyle: 'transparent',
-					strokeStyle: 'transparent',
-					verticalSections: 0,
-					borderVisible: false,
-				},
-				labels: {
-					disabled: true,
-				},
-				yRangeFunction: () => ({ min: 0, max: 100 }),
-			}),
-	);
-
-	const cpuSeries: TimeSeries[] = [];
-	const gpuSeries: TimeSeries = new TimeSeries();
-
-	const timeSeriesOptions = {
-		strokeStyle: style().colors.main,
-	};
-
-	onMount(() => {
-		if (active()) {
-			charts[0].streamTo(cpuCanvas, 1000);
-			charts[1].streamTo(gpuCanvas, 1000);
-		}
-	});
-
-	createEffect(
-		on(
-			active,
-			active => {
-				if (!cpuCanvas || !gpuCanvas) {
-					return;
-				}
-				if (active) {
-					charts[0].streamTo(cpuCanvas, 1000);
-					charts[1].streamTo(gpuCanvas, 1000);
-				} else {
-					charts.forEach(o => o.stop());
-				}
-			},
-			{ defer: true },
-		),
-	);
-
-	onCleanup(() => {
-		charts.forEach(o => o.stop());
-	});
-
-	createEffect(
-		on(theme, () => {
-			const color = style().colors.main;
-			for (const chart of charts) {
-				for (const ts of [...cpuSeries, gpuSeries]) {
-					const opts = chart.getTimeSeriesOptions(ts);
-					if (opts) opts.strokeStyle = color;
-				}
-			}
-		}),
-	);
-
-	createEffect(
-		on(data, data => {
-			if (!data) {
-				return;
-			}
-			if (!cpuSeries.length) {
-				cpuSeries.push(
-					...Array.from({ length: data.cpu.core }, () => {
-						const timeSeries = new TimeSeries();
-						charts[0].addTimeSeries(timeSeries, timeSeriesOptions);
-						return timeSeries;
-					}),
-				);
-
-				// gpu timeSeries
-				charts[1].addTimeSeries(gpuSeries, timeSeriesOptions);
-			}
-
-			const timestamp = Date.now();
-			data.cpu.usage.forEach((v, i) => cpuSeries[i].append(timestamp, v));
-			gpuSeries.append(timestamp, data.gpu.load);
-		}),
-	);
+	const usage = (value: number) =>
+		Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
 
 	return (
-		<>
+		<div class="font-united_sans_light w-full tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
 			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
 				<span class="sm:text-xs md:text-base lg:text-2xl xl:text-4xl">
 					USAGE
 				</span>
-				<div class="flex flex-col items-end justify-end">
-					<span class="text-xxs opacity-50">{data()?.cpu.name}</span>
-					<span class="text-xxs opacity-50">{data()?.gpu.name}</span>
-				</div>
+				<span class="sm:text-xxxs md:text-xxs truncate opacity-50 lg:text-sm xl:text-lg">
+					{cpu()?.name}
+				</span>
 			</div>
-			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
-				<div class="flex flex-col items-start justify-around">
-					<span class="font-united_sans_medium sm:text-xxxs md:text-xxs font-semibold not-italic lg:text-sm xl:text-lg">
-						CPU - {temp(data()?.cpu.temperature)}
-					</span>
-					<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-base xl:text-lg">
-						Avg. {data()?.cpu.load.toFixed(1) || '--'}%
-					</span>
-				</div>
-				<canvas
-					ref={cpuCanvas}
-					height="60"
-					class="border-default/30 my-[0.46vh] h-[4.167vh] w-[70%] border-y-[0.092vh] border-dashed"
-				/>
+			<div class="flex w-full flex-row flex-nowrap items-center justify-between pb-[0.5vh]">
+				<span class="font-united_sans_medium sm:text-xxxs md:text-xxs font-semibold not-italic lg:text-sm xl:text-lg">
+					CPU - {temp(cpu()?.temperature)}
+				</span>
+				<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-base xl:text-lg">
+					Avg. {cpu()?.load.toFixed(1) || '--'}%
+				</span>
 			</div>
-			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
-				<div class="flex flex-col items-start justify-around">
-					<span class="font-united_sans_medium sm:text-xxxs md:text-xxs font-semibold not-italic lg:text-sm xl:text-lg">
-						GPU - {temp(data()?.gpu.temperature)}
-					</span>
-					<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-base xl:text-lg">
-						Avg. {data()?.gpu.load.toFixed(1) || '--'}%
-					</span>
-				</div>
-				<canvas
-					ref={gpuCanvas}
-					height="60"
-					class="border-default/30 my-[0.46vh] h-[4.167vh] w-[70%] border-y-[0.092vh] border-dashed"
-				/>
-			</div>
-		</>
+			<For each={cpu()?.usage ?? []}>
+				{(value, index) => (
+					<div class="cpu-core-row">
+						<span class="cpu-core-label">C{index()}</span>
+						<div class="cpu-core-track">
+							<div
+								class="cpu-core-fill"
+								style={{ width: `${usage(value)}%` }}
+							/>
+						</div>
+						<span class="cpu-core-value">{usage(value).toFixed(0)}%</span>
+					</div>
+				)}
+			</For>
+		</div>
 	);
 }
 

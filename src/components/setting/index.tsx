@@ -1,14 +1,7 @@
-import type { Resource } from 'solid-js';
-import ShowHiddenFileSetting from '@/components/setting/hidden';
 import ChangeThemeSelection from '@/components/setting/theme';
 import { closeModal } from '@/lib/utils';
 
-interface SettingProps {
-	showHidden: Resource<boolean>;
-	changeHidden: () => void;
-}
-
-export default function Setting(props: SettingProps) {
+export default function Setting() {
 	return (
 		<dialog
 			id="setting-modal"
@@ -31,10 +24,6 @@ export default function Setting(props: SettingProps) {
 							Settings
 						</h3>
 						<div class="my-2 flex flex-col">
-							<ShowHiddenFileSetting
-								showHidden={props.showHidden}
-								changeHidden={props.changeHidden}
-							/>
 							<ChangeThemeSelection />
 						</div>
 						<h3 class="text-main font-semibold uppercase sm:text-3xl md:text-5xl lg:text-7xl xl:text-9xl">
@@ -52,6 +41,14 @@ export default function Setting(props: SettingProps) {
 							<div class="text-main flex flex-row flex-nowrap justify-between">
 								<span>Close current Terminal</span>
 								<span class="capitalize">Ctrl + w</span>
+							</div>
+							<div class="text-main flex flex-row flex-nowrap justify-between">
+								<span>Open Yazi</span>
+								<span class="capitalize">Ctrl + Shift + y</span>
+							</div>
+							<div class="text-main flex flex-row flex-nowrap justify-between">
+								<span>Attach Tmux Session</span>
+								<span class="capitalize">Alt + 1..9</span>
 							</div>
 							<div class="text-main flex flex-row flex-nowrap justify-between">
 								<span>Cycle Theme</span>

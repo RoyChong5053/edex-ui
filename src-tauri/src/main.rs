@@ -8,17 +8,19 @@ use sysinfo::System;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
+use crate::cluster::ClusterMonitor;
 use crate::event::main::EventProcessor;
-use crate::file::main::DirectoryFileWatcher;
 use crate::power::PowerManager;
 use crate::session::main::PtySessionManager;
 use crate::sys::main::SystemMonitor;
+use crate::tmux::TmuxMonitor;
 
+mod cluster;
 mod event;
-mod file;
 mod power;
 mod session;
 mod sys;
+mod tmux;
 
 #[tauri::command]
 async fn kernel_version() -> Result<String, String> {
@@ -102,18 +104,7 @@ fn main() {
                 event_processor.run().await;
             });
 
-            let (mut directory_file_watcher, directory_file_watcher_event_sender) =
-                DirectoryFileWatcher::new(process_event_sender.clone());
-
-            // Start directory file watcher processor in background
-            tauri::async_runtime::spawn(async move {
-                directory_file_watcher.run().await;
-            });
-
-            let mut pty_manager = PtySessionManager::new(
-                process_event_sender.clone(),
-                directory_file_watcher_event_sender.clone(),
-            );
+            let mut pty_manager = PtySessionManager::new(process_event_sender.clone());
             pty_manager.start(app.handle().clone());
 
             // Refresh and emit system information on a dedicated OS thread.
@@ -147,6 +138,18 @@ fn main() {
                 .name("edex-sysmon".into())
                 .spawn(move || monitor.run())
                 .expect("failed to spawn system monitor thread");
+
+            let cluster = ClusterMonitor::new(power.clone(), app.handle().clone());
+            std::thread::Builder::new()
+                .name("edex-cluster".into())
+                .spawn(move || cluster.run())
+                .expect("failed to spawn cluster monitor thread");
+
+            let tmux = TmuxMonitor::new(power.clone(), app.handle().clone());
+            std::thread::Builder::new()
+                .name("edex-tmux".into())
+                .spawn(move || tmux.run())
+                .expect("failed to spawn tmux monitor thread");
 
             Ok(())
         })

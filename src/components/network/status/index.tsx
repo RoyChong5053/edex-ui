@@ -10,11 +10,11 @@ interface BaseInformationProps {
 
 function BaseInformation(props: BaseInformationProps) {
 	return (
-		<div class="box-border flex h-full flex-col items-start justify-around nth-2:pl-1.5">
-			<span class="m-0 opacity-50 sm:text-xs md:text-lg lg:text-xl xl:text-3xl">
+		<div class="box-border flex min-w-0 flex-col items-start justify-around nth-2:pl-1.5">
+			<span class="m-0 text-[clamp(8px,1vh,11px)] opacity-50">
 				{props.header}
 			</span>
-			<span class="sm:text-xxxs m-0 md:text-sm lg:text-base xl:text-2xl">
+			<span class="m-0 w-full truncate text-[clamp(9px,1.15vh,14px)]">
 				{props.value()}
 			</span>
 		</div>
@@ -56,12 +56,12 @@ function ConnectionStatus(props: ConnectionStatusProps): JSX.Element {
 	};
 
 	return (
-		<div class="font-united_sans_light flex h-[7.41vh] w-full flex-col items-start justify-around text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
-			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
-				<span class="sm:text-xxs md:text-base lg:text-xl xl:text-3xl">
+		<div class="font-united_sans_light flex w-full flex-col items-start justify-around gap-[0.35vh] pb-[0.35vh] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
+			<div class="flex w-full flex-row flex-nowrap items-baseline justify-between gap-2">
+				<span class="truncate text-[clamp(11px,1.55vh,20px)]">
 					NETWORK STATUS
 				</span>
-				<span class="sm:text-xxxs opacity-50 md:text-xs lg:text-lg xl:text-2xl">
+				<span class="max-w-[45%] truncate text-[clamp(8px,1vh,12px)] opacity-50">
 					{location()}
 				</span>
 			</div>

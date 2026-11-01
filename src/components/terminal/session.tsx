@@ -85,9 +85,10 @@ function useScreenWidth(): Accessor<number> {
 interface SessionProps {
 	id: string;
 	active: Accessor<string>;
+	preset?: string;
 }
 
-function Session({ id, active }: SessionProps) {
+function Session({ id, active, preset }: SessionProps) {
 	const { theme } = useTheme();
 
 	// fontSize
@@ -141,7 +142,7 @@ function Session({ id, active }: SessionProps) {
 				terminal?.term.write(e.payload),
 			);
 
-			await initializeSession(id);
+			await initializeSession(id, preset);
 
 			await resize(id, terminal.term, terminal.addons);
 

@@ -6,8 +6,9 @@ import { createSignal, onCleanup } from 'solid-js';
 import { errorLog } from '@/lib/log';
 import { usePower } from '@/lib/power';
 import { useSystemData } from '@/lib/system';
+import { useTerminal } from '@/lib/terminal';
 import { Theme, useTheme } from '@/lib/themes';
-import { formatTime } from '@/lib/utils';
+import { formatTime, openModal } from '@/lib/utils';
 import type { NetworkTrafficStatus } from '@/models';
 
 const THEMES = Object.values(Theme);
@@ -16,6 +17,7 @@ function TopBar() {
 	const systemData = useSystemData();
 	const { state, showcase, setShowcase } = usePower();
 	const { theme, updateTheme } = useTheme();
+	const { launch } = useTerminal();
 	const [date] = createDateNow(1000);
 	const [network, setNetwork] = createSignal<NetworkTrafficStatus>();
 
@@ -45,7 +47,6 @@ function TopBar() {
 	};
 
 	const cpu = () => systemData()?.cpu;
-	const gpu = () => systemData()?.gpu;
 	const memory = () => systemData()?.memory;
 	const temp = (value?: number) =>
 		value && value > 0 ? `${value.toFixed(0)}°C` : '--';
@@ -59,6 +60,9 @@ function TopBar() {
 		preventDefault: true,
 	});
 	createShortcut(['Control', 'Shift', 'KeyS'], () => setShowcase(!showcase()), {
+		preventDefault: true,
+	});
+	createShortcut(['Control', 'Shift', 'KeyY'], () => launch('yazi'), {
 		preventDefault: true,
 	});
 
@@ -80,9 +84,6 @@ function TopBar() {
 					%
 				</span>
 				<span class="topbar-stat">
-					<b>GPU</b> {temp(gpu()?.temperature)}
-				</span>
-				<span class="topbar-stat">
 					<b>MEM</b> {prettyBytes(memory()?.used ?? 0)}
 				</span>
 				<span class="topbar-stat">
@@ -91,12 +92,25 @@ function TopBar() {
 				</span>
 			</div>
 
+			<div class="topbar-actions">
+				<button
+					type="button"
+					class="topbar-action"
+					onMouseDown={() => launch('yazi')}
+				>
+					FILES
+				</button>
+				<button
+					type="button"
+					class="topbar-action"
+					onMouseDown={() => openModal('setting-modal')}
+				>
+					SETTINGS
+				</button>
+			</div>
+
 			<div class="topbar-badges">
 				<span class={`topbar-badge state-${state()}`}>{state()}</span>
-				<span class="topbar-badge">{theme()}</span>
-				<span class={`topbar-badge ${showcase() ? 'showcase-on' : ''}`}>
-					{showcase() ? 'SHOWCASE' : 'STEALTH'}
-				</span>
 			</div>
 		</header>
 	);

@@ -24,7 +24,7 @@ function nextActiveTerminal(target: string, ids: string[]) {
 }
 
 function TerminalSection() {
-	const { active, setActive } = useTerminal();
+	const { active, setActive, launchRequest } = useTerminal();
 
 	const [terminals, setTerminals] = createSignal<
 		Map<string, TerminalContainer>
@@ -35,6 +35,18 @@ function TerminalSection() {
 	onMount(() => {
 		addTerminal();
 	});
+
+	createEffect(
+		on(
+			launchRequest,
+			request => {
+				if (request) {
+					addTerminal(request.preset);
+				}
+			},
+			{ defer: true },
+		),
+	);
 
 	createEffect(
 		on(active, active => {
@@ -88,7 +100,7 @@ function TerminalSection() {
 	 * Internally, will create a new pty sessions in the backend
 	 * it will also handle updating the current index on creation.
 	 */
-	function addTerminal() {
+	function addTerminal(preset?: string) {
 		const id = crypto.randomUUID();
 		batch(() => {
 			setActive(id);
@@ -96,7 +108,14 @@ function TerminalSection() {
 				const newMap = new Map(prevState);
 				newMap.set(id, {
 					id,
-					terminal: () => <Session id={/* @once */ id} active={active} />,
+					preset,
+					terminal: () => (
+						<Session
+							id={/* @once */ id}
+							active={active}
+							preset={/* @once */ preset}
+						/>
+					),
 				});
 				return newMap;
 			});

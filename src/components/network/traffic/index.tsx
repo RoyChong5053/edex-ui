@@ -127,21 +127,19 @@ function NetworkTraffic(props: NetworkTrafficProps): JSX.Element {
 
 	return (
 		<div class="font-united_sans_light flex w-full flex-col items-start justify-around pb-1 text-[clamp(11px,1.2vh,16px)] tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
-			<div class="flex w-full flex-row flex-nowrap items-center justify-between">
-				<span class="sm:text-xxs md:text-sm lg:text-lg xl:text-3xl">
+			<div class="flex w-full flex-row flex-nowrap items-baseline justify-between gap-2">
+				<span class="truncate text-[clamp(10px,1.35vh,17px)]">
 					NETWORK TRAFFIC
 				</span>
-				<span class="sm:text-xxxs opacity-50 md:text-xxs lg:text-xs xl:text-base">
+				<span class="shrink-0 text-[clamp(8px,1vh,12px)] opacity-50">
 					{`UP ${prettyBytes(traffic()?.transmitted || 0)} / DOWN ${prettyBytes(
 						traffic()?.received || 0,
 					)}`}
 				</span>
 			</div>
-			<div class="flex w-full flex-row flex-nowrap items-center justify-between opacity-30">
-				<span class="sm:text-xs md:text-base lg:text-xl xl:text-4xl">
-					TOTAL
-				</span>
-				<span class="sm:text-xxs md:text-sm lg:text-lg xl:text-3xl">
+			<div class="flex w-full flex-row flex-nowrap items-baseline justify-between opacity-30">
+				<span class="text-[clamp(11px,1.5vh,20px)]">TOTAL</span>
+				<span class="text-[clamp(9px,1.1vh,14px)]">
 					{`${prettyBytes(traffic()?.totalTransmitted || 0)} OUT, ${prettyBytes(
 						traffic()?.totalReceive || 0,
 					)} IN`}

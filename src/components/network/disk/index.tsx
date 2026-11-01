@@ -16,13 +16,11 @@ function DiskUsage() {
 	});
 
 	return (
-		<div class="font-united_sans_light flex h-[14vh] w-full flex-col flex-nowrap tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
+		<div class="font-united_sans_light flex max-h-[14vh] min-h-[9vh] w-full flex-col flex-nowrap tracking-[0.092vh] sm:px-0.5 md:px-1.5 lg:px-2.5 xl:px-3.5">
 			<div class="flex flex-row flex-nowrap items-center justify-start">
-				<span class="sm:text-xs md:text-base lg:text-xl xl:text-4xl">
-					DISK USAGE
-				</span>
+				<span class="text-[clamp(11px,1.55vh,20px)]">DISK USAGE</span>
 			</div>
-			<div class="mb-3 size-full overflow-auto">
+			<div class="mb-1 min-h-0 size-full overflow-auto">
 				<For each={disks()}>
 					{disk => (
 						<div
@@ -32,18 +30,18 @@ function DiskUsage() {
 							}}
 						>
 							<div class="flex flex-row items-center justify-between">
-								<span class="sm:text-xs md:text-base lg:text-xl xl:text-4xl">
+								<span class="truncate text-[clamp(10px,1.3vh,16px)]">
 									{disk.name}
 								</span>
-								<span class="sm:text-xxs md:text-sm lg:text-lg xl:text-3xl">
+								<span class="shrink-0 pl-2 text-[clamp(8px,1vh,12px)] opacity-60">
 									{disk.internal ? 'Internal' : 'External'}
 								</span>
 							</div>
 							<div class="flex flex-row items-center justify-between">
-								<span class="sm:text-xxxs md:text-xs lg:text-base xl:text-2xl">
+								<span class="text-[clamp(8px,1vh,12px)] opacity-60">
 									{prettyBytes(disk.total)}
 								</span>
-								<span class="sm:text-xxxs md:text-xs lg:text-base xl:text-2xl">
+								<span class="text-[clamp(8px,1vh,12px)] opacity-60">
 									{prettyBytes(disk.available)} Free
 								</span>
 							</div>

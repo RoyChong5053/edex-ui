@@ -5,9 +5,22 @@ import {
 	useContext,
 } from 'solid-js';
 
+export interface TerminalLaunch {
+	preset: string;
+	nonce: number;
+}
+
 function useProviderValue() {
 	const [active, setActive] = createSignal<string>('');
-	return { active, setActive };
+	const [launchRequest, setLaunchRequest] = createSignal<TerminalLaunch>();
+	let nonce = 0;
+
+	const launch = (preset: string) => {
+		nonce += 1;
+		setLaunchRequest({ preset, nonce });
+	};
+
+	return { active, setActive, launch, launchRequest };
 }
 
 type ContextType = ReturnType<typeof useProviderValue>;

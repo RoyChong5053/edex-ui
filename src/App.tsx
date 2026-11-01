@@ -1,7 +1,6 @@
 import BootOverlay from '@/components/boot';
-import FileSystem from '@/components/filesystem';
-import KeyboardHud from '@/components/keyboard';
 import Network from '@/components/network';
+import Setting from '@/components/setting';
 import System from '@/components/system';
 import Terminal from '@/components/terminal';
 import TopBar from '@/components/topbar';
@@ -20,10 +19,7 @@ function App() {
 				<Terminal />
 				<Network />
 			</div>
-			<div class="bottom-row">
-				<FileSystem />
-				<KeyboardHud />
-			</div>
+			<Setting />
 		</div>
 	);
 }

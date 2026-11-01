@@ -1,4 +1,3 @@
-use crate::file::main::DirectoryInfo;
 use crate::power::PowerManager;
 use crate::sys::main::{DiskUsage, NetworkData, SystemData};
 use log::{error, trace};
@@ -7,7 +6,6 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
 const DESTROY_TERMINAL: &str = "destroy";
-const UPDATE_FILES: &str = "files";
 
 //TODO: Redesign event later.
 #[derive(Debug)]
@@ -15,7 +13,6 @@ pub enum ProcessEvent {
     System { system_data: SystemData },
     Network { network_data: NetworkData },
     Disks { disks_data: Vec<DiskUsage> },
-    Directory { directory_info: DirectoryInfo },
     Forward { id: String, data: Vec<u8> }, // Handle Pty Message forwarding
     ProcessExit { id: String, exit_code: Option<u32> }, // Handle Pty Session Exits
 }
@@ -64,9 +61,6 @@ impl EventProcessor {
             }
             ProcessEvent::Disks { disks_data } => {
                 self.send_data("disk", disks_data);
-            }
-            ProcessEvent::Directory { directory_info } => {
-                self.send_data(UPDATE_FILES, directory_info);
             }
         }
     }
