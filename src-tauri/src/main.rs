@@ -15,6 +15,7 @@ use crate::session::main::PtySessionManager;
 use crate::sys::main::SystemMonitor;
 use crate::tmux::TmuxMonitor;
 
+mod audio;
 mod cluster;
 mod event;
 mod power;
@@ -75,7 +76,7 @@ fn main() {
                 .expect("no main window")
                 .set_focus();
         }))
-        .invoke_handler(tauri::generate_handler![kernel_version])
+        .invoke_handler(tauri::generate_handler![kernel_version, audio::audio_state, audio::audio_set_volume, audio::audio_set_mute])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(focused) = event {
                 if let Some(power) = window

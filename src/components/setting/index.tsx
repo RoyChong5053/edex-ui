@@ -1,3 +1,4 @@
+import AudioControl from '@/components/setting/audio';
 import ChangeThemeSelection from '@/components/setting/theme';
 import { closeModal } from '@/lib/utils';
 
@@ -25,6 +26,9 @@ export default function Setting() {
 						</h3>
 						<div class="my-2 flex flex-col">
 							<ChangeThemeSelection />
+						</div>
+						<div class="my-1 flex flex-col gap-2">
+							<AudioControl />
 						</div>
 						<h3 class="text-main font-semibold uppercase sm:text-3xl md:text-5xl lg:text-7xl xl:text-9xl">
 							Shortcuts
