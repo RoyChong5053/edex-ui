@@ -3,6 +3,7 @@ import { type Event, listen } from '@tauri-apps/api/event';
 import { createSignal, For, onCleanup, Show } from 'solid-js';
 import { errorLog } from '@/lib/log';
 import { useTerminal } from '@/lib/terminal';
+import { isModalOpen } from '@/lib/utils';
 import type { TmuxStatus } from '@/models';
 
 const MAX_ROWS = 4;
@@ -34,6 +35,7 @@ function Tmux() {
 		createShortcut(
 			['Alt', `Digit${index}`],
 			() => {
+				if (isModalOpen()) return;
 				const session = sessions()[index - 1];
 				if (session) {
 					launch(`tmux:${session.name}`);

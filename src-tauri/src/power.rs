@@ -25,9 +25,19 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub const SOCKET_PATH: &str = "/tmp/edex-1000.sock";
+
+/// How long the frontend may go without a heartbeat while ACTIVE before we
+/// assume WebKit did not survive a long `SIGSTOP` and reload it. The frontend
+/// beats every two seconds; this is generous enough to survive GC pauses and
+/// a loaded CPU without reloading a healthy UI.
+const HEARTBEAT_STALE_MS: u64 = 10_000;
+
+/// Minimum gap between watchdog reloads so a genuinely broken page cannot
+/// cause a reload loop.
+const RELOAD_COOLDOWN_MS: u64 = 60_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -58,6 +68,12 @@ pub struct PowerManager {
     // Volatile so the settings UI can retune the timeout at runtime without
     // racing the idle loop that reads it.
     idle_timeout_ms: AtomicU64,
+    // Liveness of the webview. Updated by a 2s `ui_heartbeat` invocation from
+    // the frontend; the watchdog reloads the page if it stops while active.
+    last_heartbeat_ms: AtomicU64,
+    ui_seen: AtomicBool,
+    last_reload_ms: AtomicU64,
+    reload_count: AtomicU64,
 }
 
 impl PowerManager {
@@ -75,6 +91,10 @@ impl PowerManager {
             pty_buffers: Mutex::new(HashMap::new()),
             showcase: AtomicBool::new(false),
             idle_timeout_ms: AtomicU64::new(idle_timeout_secs.saturating_mul(1000)),
+            last_heartbeat_ms: AtomicU64::new(now_ms()),
+            ui_seen: AtomicBool::new(false),
+            last_reload_ms: AtomicU64::new(0),
+            reload_count: AtomicU64::new(0),
         })
     }
 
@@ -115,6 +135,14 @@ impl PowerManager {
         {
             error!("failed to start hard freeze watcher: {e}");
         }
+
+        let watchdog = self.clone();
+        if let Err(e) = thread::Builder::new()
+            .name("edex-ui-watchdog".into())
+            .spawn(move || watchdog.ui_watchdog_loop())
+        {
+            error!("failed to start UI watchdog: {e}");
+        }
     }
 
     pub fn state(&self) -> PowerState {
@@ -142,14 +170,96 @@ impl PowerManager {
         self.last_pty_activity_ms.store(now_ms(), Ordering::Relaxed);
     }
 
+    /// Liveness beat from the frontend. Called every two seconds by a timer
+    /// that only runs while the page is executing; if it stops, the webview is
+    /// either frozen or wedged and the watchdog may recover it.
+    pub fn heartbeat(&self) {
+        self.last_heartbeat_ms.store(now_ms(), Ordering::Relaxed);
+        self.ui_seen.store(true, Ordering::Relaxed);
+    }
+
+    pub fn heartbeat_age_ms(&self) -> u64 {
+        now_ms().saturating_sub(self.last_heartbeat_ms.load(Ordering::Relaxed))
+    }
+
+    /// Reload the main webview. Used by the watchdog and `edex-ctl reload`.
+    ///
+    /// The PTYs are owned by the Rust process, so reloading does not kill the
+    /// running shells — but the tab list lives in the frontend, so this is a
+    /// recovery path, not a transparent one: the reloaded UI starts a fresh
+    /// terminal and the old sessions are left running in the background until
+    /// terminal reattach lands (M2). A working cockpit beats a wedged one.
+    pub fn reload_ui(&self, reason: &str) -> bool {
+        let Some(window) = self.app.get_webview_window("main") else {
+            error!("cannot reload UI ({reason}): main window is gone");
+            return false;
+        };
+        self.last_reload_ms.store(now_ms(), Ordering::Relaxed);
+        self.reload_count.fetch_add(1, Ordering::Relaxed);
+        // Give the fresh page a heartbeat grace period instead of immediately
+        // tripping the stale check again before its first beat.
+        self.last_heartbeat_ms.store(now_ms(), Ordering::Relaxed);
+        match window.reload() {
+            Ok(()) => {
+                info!("reloading UI ({reason})");
+                true
+            }
+            Err(e) => {
+                error!("failed to reload UI ({reason}): {e}");
+                false
+            }
+        }
+    }
+
+    fn ui_watchdog_loop(&self) {
+        loop {
+            thread::sleep(Duration::from_secs(2));
+
+            // Only a page that is supposed to be running can be wedged. While
+            // SLEEP/YIELD the whole web process is SIGSTOPped (or idle), so a
+            // stale heartbeat is expected.
+            if self.state() != PowerState::Active || self.is_hard_frozen() {
+                continue;
+            }
+            // Never reload before the first heartbeat: a slow cold start must
+            // not be mistaken for a hang.
+            if !self.ui_seen.load(Ordering::Relaxed) {
+                continue;
+            }
+
+            let age = self.heartbeat_age_ms();
+            if age <= HEARTBEAT_STALE_MS {
+                continue;
+            }
+
+            let since_reload =
+                now_ms().saturating_sub(self.last_reload_ms.load(Ordering::Relaxed));
+            if since_reload < RELOAD_COOLDOWN_MS {
+                continue;
+            }
+
+            error!(
+                "UI heartbeat stale for {age}ms while active; reloading webview to recover"
+            );
+            self.reload_ui("stale-heartbeat");
+        }
+    }
+
     pub fn set_focused(&self, focused: bool) {
         self.focused.store(focused, Ordering::Relaxed);
         if focused {
             if self.manual_hold.load(Ordering::Relaxed) {
                 return;
             }
+            let timeout_ms = self.idle_timeout_ms.load(Ordering::Relaxed);
+            // `0` means Never: focusing must always wake, regardless of how
+            // long the machine has been idle.
+            if timeout_ms == 0 {
+                self.activate("focus");
+                return;
+            }
             let idle = read_idle_ms().unwrap_or(0);
-            if idle < self.idle_timeout_ms.load(Ordering::Relaxed) {
+            if idle < timeout_ms {
                 self.activate("focus");
             } else if self.state() == PowerState::Active {
                 // The window got focus, but the user has not touched the
@@ -339,8 +449,11 @@ impl PowerManager {
             let state = self.state();
 
             let hold = self.manual_hold.load(Ordering::Relaxed);
+            let timeout_ms = self.idle_timeout_ms.load(Ordering::Relaxed);
 
-            if idle >= self.idle_timeout_ms.load(Ordering::Relaxed) {
+            // `0` = Never. The old code compared `idle >= 0`, which is always
+            // true, so "Never" still slept after the 60s grace period.
+            if timeout_ms > 0 && idle >= timeout_ms {
                 // Give a freshly summoned cockpit a minute to be looked at
                 // before the idle timeout can put it back to sleep.
                 let since_transition =
@@ -449,6 +562,10 @@ impl PowerManager {
                     self.set_showcase(on);
                     self.status_json()
                 }
+                "reload" => {
+                    self.reload_ui("ctl");
+                    self.status_json()
+                }
                 _ if command.starts_with("theme ") => {
                     let theme = command.trim_start_matches("theme ").trim();
                     if let Err(e) = self.app.emit("theme", theme.to_string()) {
@@ -483,6 +600,9 @@ impl PowerManager {
             "idle_ms": read_idle_ms(),
             "pty_idle_ms": pty_idle,
             "idle_timeout_ms": self.idle_timeout_ms.load(Ordering::Relaxed),
+            "heartbeat_age_ms": self.heartbeat_age_ms(),
+            "ui_seen": self.ui_seen.load(Ordering::Relaxed),
+            "reload_count": self.reload_count.load(Ordering::Relaxed),
         })
         .to_string()
     }

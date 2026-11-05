@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Tiny control client for the running eDEX-UI instance."""
+import json
+import socket
+import sys
+
+SOCKET = "/tmp/edex-1000.sock"
+
+
+def main() -> int:
+    command = " ".join(sys.argv[1:]).strip() or "status"
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(3)
+            sock.connect(SOCKET)
+            sock.sendall((command + "\n").encode())
+            data = b""
+            while not data.endswith(b"\n"):
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+    except FileNotFoundError:
+        print("edex-ctl: socket not found; is edex running?", file=sys.stderr)
+        return 1
+    except (ConnectionError, socket.timeout) as exc:
+        print(f"edex-ctl: {exc}", file=sys.stderr)
+        return 1
+
+    text = data.decode(errors="replace").strip()
+    if command == "status":
+        try:
+            print(json.dumps(json.loads(text), indent=2))
+            return 0
+        except json.JSONDecodeError:
+            pass
+    print(text)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

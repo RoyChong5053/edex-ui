@@ -9,7 +9,7 @@ import { usePower } from '@/lib/power';
 import { useSystemData } from '@/lib/system';
 import { useTerminal } from '@/lib/terminal';
 import { Theme, useTheme } from '@/lib/themes';
-import { formatTime, openModal } from '@/lib/utils';
+import { formatTime, isModalOpen, openModal } from '@/lib/utils';
 import type { NetworkTrafficStatus } from '@/models';
 
 const THEMES = Object.values(Theme);
@@ -69,22 +69,46 @@ function TopBar() {
 		updateTheme(THEMES[(current + 1) % THEMES.length]).catch(errorLog);
 	};
 
-	createShortcut(['Control', 'Shift', 'KeyT'], cycleTheme, {
-		preventDefault: true,
-	});
-	createShortcut(['Control', 'Shift', 'KeyS'], () => setShowcase(!showcase()), {
-		preventDefault: true,
-	});
-	createShortcut(['Control', 'Shift', 'KeyY'], () => launch('yazi'), {
-		preventDefault: true,
-	});
+	// Global desktop shortcuts must not fire while a dialog is open: otherwise
+	// typing in the terminal (or a future settings field) would also cycle the
+	// theme or freeze the cockpit.
+	const desktopShortcut = (action: () => void) => () => {
+		if (isModalOpen()) return;
+		action();
+	};
+
+	createShortcut(
+		['Control', 'Shift', 'KeyT'],
+		desktopShortcut(cycleTheme),
+		{
+			preventDefault: true,
+		},
+	);
+	createShortcut(
+		['Control', 'Shift', 'KeyS'],
+		desktopShortcut(() => setShowcase(!showcase())),
+		{
+			preventDefault: true,
+		},
+	);
+	createShortcut(
+		['Control', 'Shift', 'KeyY'],
+		desktopShortcut(() => launch('yazi')),
+		{
+			preventDefault: true,
+		},
+	);
 	// Freeze / Wake: instantly park the always-animating webview (the biggest
 	// CPU lever on this Atom) and wake it back up. Backed by the power toggle.
-	createShortcut(['Control', 'Shift', 'KeyF'], () => {
-		void invoke('power_toggle').catch(errorLog);
-	}, {
-		preventDefault: true,
-	});
+	createShortcut(
+		['Control', 'Shift', 'KeyF'],
+		desktopShortcut(() => {
+			void invoke('power_toggle').catch(errorLog);
+		}),
+		{
+			preventDefault: true,
+		},
+	);
 
 	return (
 		<header class="topbar">

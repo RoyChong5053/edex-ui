@@ -1,0 +1,17 @@
+#!/bin/bash
+set -u
+if systemctl is-active --quiet edex.service; then
+  echo "edex already running"
+else
+  sudo -n systemctl start edex.service || { echo "failed to start edex.service"; exit 1; }
+fi
+for _ in $(seq 1 40); do
+  [ -S /tmp/edex-1000.sock ] && break
+  sleep 0.25
+done
+if command -v edex-ctl >/dev/null 2>&1; then
+  edex-ctl thaw >/dev/null 2>&1 || true
+  edex-ctl showcase off >/dev/null 2>&1 || true
+fi
+DISPLAY=:0 XAUTHORITY=/run/X0-kiosk xset dpms force on >/dev/null 2>&1 || true
+echo "edex started (DISPLAY=:0, VNC=5900)"

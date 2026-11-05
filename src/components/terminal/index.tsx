@@ -14,6 +14,7 @@ import TerminalSelectionTab from '@/components/terminal/tab';
 import { errorLog } from '@/lib/log';
 import { terminateSession } from '@/lib/os';
 import { useTerminal } from '@/lib/terminal';
+import { isModalOpen } from '@/lib/utils';
 import type { TerminalContainer } from '@/models';
 
 import './index.css';
@@ -60,7 +61,7 @@ function TerminalSection() {
 	createShortcut(
 		['Control', 'Tab'],
 		() => {
-			if (terminalIds().length === 1) {
+			if (isModalOpen() || terminalIds().length === 1) {
 				return;
 			}
 			setActive(prevState => nextActiveTerminal(prevState, terminalIds()));
@@ -70,13 +71,23 @@ function TerminalSection() {
 
 	createShortcut(
 		['Control', 'W'],
-		() => terminateSession(active()).catch(errorLog),
+		() => {
+			if (isModalOpen()) return;
+			terminateSession(active()).catch(errorLog);
+		},
 		{ preventDefault: true },
 	);
 
-	createShortcut(['Control', 'T'], () => addTerminal(), {
-		preventDefault: true,
-	});
+	createShortcut(
+		['Control', 'T'],
+		() => {
+			if (isModalOpen()) return;
+			addTerminal();
+		},
+		{
+			preventDefault: true,
+		},
+	);
 
 	const unListen = listen('destroy', async (e: Event<string>) => {
 		const id = e.payload;

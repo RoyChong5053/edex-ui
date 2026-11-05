@@ -37,6 +37,16 @@ function useProviderValue() {
 				errorLog,
 			);
 		});
+
+		// Liveness beat. If WebKit does not survive a long SIGSTOP, this timer
+		// stops and the Rust watchdog reloads the page. Beating immediately
+		// marks `ui_seen`, so a cold start is never mistaken for a hang.
+		const beat = () => {
+			void invoke('ui_heartbeat').catch(errorLog);
+		};
+		beat();
+		const heartbeat = setInterval(beat, 2000);
+		onCleanup(() => clearInterval(heartbeat));
 	});
 
 	onCleanup(() => {

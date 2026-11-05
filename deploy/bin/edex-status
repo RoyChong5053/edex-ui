@@ -1,0 +1,4 @@
+#!/bin/bash
+systemctl status --no-pager --lines=8 edex.service 2>/dev/null || true
+echo "---"
+if command -v edex-ctl >/dev/null 2>&1; then edex-ctl status 2>&1 || true; fi

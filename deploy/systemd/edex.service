@@ -1,0 +1,17 @@
+[Unit]
+Description=Edex UI (manual, on-demand)
+Documentation=file:///usr/local/bin/edex-kiosk.sh
+After=multi-user.target
+
+[Service]
+Type=simple
+User=root
+Environment=KIOSK_DISPLAY=:0
+Environment=KIOSK_AUTH=/run/X0-kiosk
+Environment=KIOSK_VNCPORT=5900
+ExecStartPre=/bin/rm -f /run/X0-kiosk /tmp/.X0-lock /tmp/.X11-unix/X0
+ExecStart=/usr/local/bin/edex-kiosk.sh
+Restart=on-failure
+RestartSec=2
+KillMode=control-group
+TimeoutStopSec=5

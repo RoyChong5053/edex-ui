@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { errorLog } from '@/lib/log';
 
 interface AudioState {
 	volume: number;
@@ -9,9 +10,16 @@ interface AudioState {
 // Software amplification is allowed up to 150% (pactl cap).
 const MAX_VOLUME = 150;
 
-// Reflect volume changes made outside the UI (physical keys, pactl, etc.)
-// without the user having to reopen settings.
+// While the settings panel is open, reflect volume changes made outside the
+// UI (physical keys, pactl, etc.). The component is only mounted while the
+// dialog is open (see components/setting/index.tsx), so this never becomes a
+// permanent background poll.
 const POLL_INTERVAL_MS = 4000;
+
+// Dragging the slider fires `input` for every pixel. Without debouncing, each
+// step forks a `pactl` process; on this 2-core Atom that is enough to make the
+// slider feel sticky. Coalesce to one call per ~120ms and flush on release.
+const VOLUME_DEBOUNCE_MS = 120;
 
 function SpeakerIcon({ muted }: { muted: boolean }) {
 	return (
@@ -35,6 +43,26 @@ function AudioControl() {
 	const [available, setAvailable] = createSignal(true);
 
 	let rangeEl!: HTMLInputElement;
+	let volumeTimer: ReturnType<typeof setTimeout> | undefined;
+	let pendingVolume: number | undefined;
+
+	const flushVolume = () => {
+		if (volumeTimer !== undefined) {
+			clearTimeout(volumeTimer);
+			volumeTimer = undefined;
+		}
+		const value = pendingVolume;
+		pendingVolume = undefined;
+		if (value !== undefined) {
+			void invoke('audio_set_volume', { volume: value }).catch(errorLog);
+		}
+	};
+
+	const queueVolume = (value: number) => {
+		pendingVolume = value;
+		if (volumeTimer !== undefined) clearTimeout(volumeTimer);
+		volumeTimer = setTimeout(flushVolume, VOLUME_DEBOUNCE_MS);
+	};
 
 	// Drive the fill gradient via CSS variables (set on the element, which keeps
 	// the static <style> block free of Solid expressions).
@@ -59,20 +87,27 @@ function AudioControl() {
 		const v = Number((e.currentTarget as HTMLInputElement).value);
 		setVolume(v);
 		if (muted()) setMuted(false);
-		void invoke('audio_set_volume', { volume: v });
+		queueVolume(v);
+	}
+
+	function onVolumeCommit() {
+		flushVolume();
 	}
 
 	function toggleMute() {
 		const next = !muted();
 		setMuted(next);
 		if (next && volume() === 0) setVolume(50);
-		void invoke('audio_set_mute', { muted: next });
+		void invoke('audio_set_mute', { muted: next }).catch(errorLog);
 	}
 
 	onMount(() => {
 		void refresh();
 		const id = setInterval(refresh, POLL_INTERVAL_MS);
-		onCleanup(() => clearInterval(id));
+		onCleanup(() => {
+			clearInterval(id);
+			flushVolume();
+		});
 	});
 
 	if (!available()) {
@@ -157,6 +192,7 @@ function AudioControl() {
 					max={MAX_VOLUME}
 					value={volume()}
 					onInput={onVolumeInput}
+					onChange={onVolumeCommit}
 					ref={rangeEl}
 					class="audio-range w-full"
 				/>

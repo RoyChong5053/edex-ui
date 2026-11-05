@@ -52,6 +52,15 @@ async fn power_set_idle_timeout(
     Ok(())
 }
 
+/// Liveness beat from the webview. The power manager's watchdog reloads the
+/// page if this stops while the cockpit is supposed to be active — the
+/// recovery path for a WebKit process that did not survive a long SIGSTOP.
+#[tauri::command]
+async fn ui_heartbeat(power: tauri::State<'_, std::sync::Arc<PowerManager>>) -> Result<(), String> {
+    power.heartbeat();
+    Ok(())
+}
+
 fn main() {
     let log_level = if cfg!(debug_assertions) {
         LevelFilter::Info
@@ -105,6 +114,7 @@ fn main() {
             audio::audio_set_mute,
             power_toggle,
             power_set_idle_timeout,
+            ui_heartbeat,
             bluetooth::bluetooth_state,
             bluetooth::bluetooth_set_powered,
             bluetooth::bluetooth_set_discoverable,
