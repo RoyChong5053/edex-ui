@@ -63,6 +63,17 @@ fn construct_cmd(preset: Option<&str>) -> CommandBuilder {
                 cmd.arg("-lc");
                 cmd.arg("exec yazi");
             }
+            // NetworkManager and BlueZ are managed through their dedicated
+            // terminal UIs rather than a fixed webview panel. Keep the
+            // commands literal (no user input) so the launch is safe.
+            "nmtui" => {
+                cmd.arg("-lc");
+                cmd.arg("exec nmtui");
+            }
+            "bluetuith" => {
+                cmd.arg("-lc");
+                cmd.arg("exec bluetuith");
+            }
             value if value.starts_with("tmux:") => {
                 let name = &value["tmux:".len()..];
                 if is_valid_tmux_name(name) {

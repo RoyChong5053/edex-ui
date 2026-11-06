@@ -1,8 +1,8 @@
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import AudioControl from '@/components/setting/audio';
-import BluetoothControl from '@/components/setting/bluetooth';
 import PowerControl from '@/components/setting/power';
 import ChangeThemeSelection from '@/components/setting/theme';
+import { useTerminal } from '@/lib/terminal';
 import {
 	closeModal,
 	MODAL_EVENT,
@@ -17,6 +17,15 @@ export default function Setting() {
 	// is what keeps Audio/Bluetooth from polling the system in the background
 	// for the entire lifetime of the cockpit.
 	const [open, setOpen] = createSignal(false);
+	const { launch } = useTerminal();
+
+	// Networking and Bluetooth are deliberately not reimplemented as fixed UI
+	// here: a static webview is a poor place to scan SSIDs or pair devices.
+	// Those jobs belong to the terminal tools, so open them in a fresh PTY.
+	const launchTool = (preset: string) => {
+		closeModal(MODAL_ID);
+		launch(preset);
+	};
 
 	onMount(() => {
 		const onModal = (event: Event) => {
@@ -37,7 +46,6 @@ export default function Setting() {
 			onCancel={() => closeModal(MODAL_ID)}
 			onClose={() => setOpen(false)}
 		>
-			<div class="fixed left-1 top-1 z-50 bg-red-600 px-1 text-xs text-white">PROBE-V2</div>
 			<div
 				class="fixed inset-0 z-20 m-auto h-fit max-h-[62vh] min-h-[62vh] w-[38vw] overflow-y-auto"
 				onMouseDown={(e) => {
@@ -73,7 +81,25 @@ export default function Setting() {
 								<AudioControl />
 							</div>
 							<div class="my-1 flex flex-col gap-2">
-								<BluetoothControl />
+								<span class="text-main sm:text-base md:text-xl lg:text-3xl xl:text-5xl">
+									System
+								</span>
+								<div class="flex flex-row flex-wrap gap-2">
+									<button
+										type="button"
+										class="border-default text-main rounded border-1 px-2 py-0.5 text-xs opacity-70 transition-opacity hover:opacity-100 sm:text-sm md:text-base"
+										onClick={() => launchTool('nmtui')}
+									>
+										Network · nmtui
+									</button>
+									<button
+										type="button"
+										class="border-default text-main rounded border-1 px-2 py-0.5 text-xs opacity-70 transition-opacity hover:opacity-100 sm:text-sm md:text-base"
+										onClick={() => launchTool('bluetuith')}
+									>
+										Bluetooth · bluetuith
+									</button>
+								</div>
 							</div>
 							<h3 class="text-main font-semibold uppercase sm:text-3xl md:text-5xl lg:text-7xl xl:text-9xl">
 								Shortcuts
@@ -94,6 +120,14 @@ export default function Setting() {
 								<div class="text-main flex flex-row flex-nowrap justify-between">
 									<span>Open Yazi</span>
 									<span class="capitalize">Ctrl + Shift + y</span>
+								</div>
+								<div class="text-main flex flex-row flex-nowrap justify-between">
+									<span>Network (nmtui)</span>
+									<span class="capitalize">Ctrl + Shift + n</span>
+								</div>
+								<div class="text-main flex flex-row flex-nowrap justify-between">
+									<span>Bluetooth (bluetuith)</span>
+									<span class="capitalize">Ctrl + Shift + b</span>
 								</div>
 								<div class="text-main flex flex-row flex-nowrap justify-between">
 									<span>Attach Tmux Session</span>

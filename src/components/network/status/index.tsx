@@ -6,11 +6,16 @@ import { type NETWORK_STATUS, OFFLINE, ONLINE } from '@/models';
 interface BaseInformationProps {
 	header: string;
 	value: Accessor<string>;
+	center?: boolean;
 }
 
 function BaseInformation(props: BaseInformationProps) {
 	return (
-		<div class="box-border flex min-w-0 flex-col items-start justify-around nth-2:pl-1.5">
+		<div
+			class={`box-border flex min-w-0 flex-col justify-around nth-2:pl-1.5 ${
+				props.center ? 'items-center text-center' : 'items-start'
+			}`}
+		>
 			<span class="m-0 text-[clamp(8px,1vh,11px)] opacity-50">
 				{props.header}
 			</span>
@@ -65,10 +70,10 @@ function ConnectionStatus(props: ConnectionStatusProps): JSX.Element {
 					{location()}
 				</span>
 			</div>
-			<div class="grid w-full grid-cols-[25%_50%_25%]">
+			<div class="grid w-full grid-cols-[26%_46%_28%]">
 				<BaseInformation header={'STATE'} value={status} />
 				<BaseInformation header={'IPv4'} value={query} />
-				<BaseInformation header={'PING'} value={latency} />
+				<BaseInformation header={'PING'} value={latency} center />
 			</div>
 		</div>
 	);

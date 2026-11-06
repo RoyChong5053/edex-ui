@@ -16,7 +16,6 @@ use crate::sys::main::SystemMonitor;
 use crate::tmux::TmuxMonitor;
 
 mod audio;
-mod bluetooth;
 mod cluster;
 mod event;
 mod power;
@@ -114,12 +113,7 @@ fn main() {
             audio::audio_set_mute,
             power_toggle,
             power_set_idle_timeout,
-            ui_heartbeat,
-            bluetooth::bluetooth_state,
-            bluetooth::bluetooth_set_powered,
-            bluetooth::bluetooth_set_discoverable,
-            bluetooth::bluetooth_connect,
-            bluetooth::bluetooth_disconnect
+            ui_heartbeat
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(focused) = event {

@@ -98,6 +98,22 @@ function TopBar() {
 			preventDefault: true,
 		},
 	);
+	// Network / Bluetooth management runs in the real terminal tools
+	// (`nmtui`, `bluetuith`) instead of a fixed webview panel.
+	createShortcut(
+		['Control', 'Shift', 'KeyN'],
+		desktopShortcut(() => launch('nmtui')),
+		{
+			preventDefault: true,
+		},
+	);
+	createShortcut(
+		['Control', 'Shift', 'KeyB'],
+		desktopShortcut(() => launch('bluetuith')),
+		{
+			preventDefault: true,
+		},
+	);
 	// Freeze / Wake: instantly park the always-animating webview (the biggest
 	// CPU lever on this Atom) and wake it back up. Backed by the power toggle.
 	createShortcut(
@@ -138,6 +154,20 @@ function TopBar() {
 			</div>
 
 			<div class="topbar-actions">
+				<button
+					type="button"
+					class="topbar-action"
+					onMouseDown={() => launch('nmtui')}
+				>
+					NET
+				</button>
+				<button
+					type="button"
+					class="topbar-action"
+					onMouseDown={() => launch('bluetuith')}
+				>
+					BT
+				</button>
 				<button
 					type="button"
 					class="topbar-action"
