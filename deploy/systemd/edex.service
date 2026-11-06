@@ -1,7 +1,13 @@
 [Unit]
-Description=Edex UI (manual, on-demand)
+Description=eDEX-UI kiosk (Xorg + login greeter + cockpit)
 Documentation=file:///usr/local/bin/edex-kiosk.sh
-After=multi-user.target
+# This service is the display manager on this machine: start after the user
+# session machinery and after plymouth has released the DRM device, but before
+# a getty can claim the console.
+After=systemd-user-sessions.service plymouth-quit-wait.service
+Wants=plymouth-quit-wait.service
+Conflicts=getty@tty1.service
+Before=getty@tty1.service
 
 [Service]
 Type=simple
@@ -9,9 +15,12 @@ User=root
 Environment=KIOSK_DISPLAY=:0
 Environment=KIOSK_AUTH=/run/X0-kiosk
 Environment=KIOSK_VNCPORT=5900
-ExecStartPre=/bin/rm -f /run/X0-kiosk /tmp/.X0-lock /tmp/.X11-unix/X0
+ExecStartPre=/bin/rm -f /run/X0-kiosk /tmp/.X0-lock /tmp/.X11-unix/X0 /tmp/edex-login-ok /run/user/1000/edex-login-ok
 ExecStart=/usr/local/bin/edex-kiosk.sh
 Restart=on-failure
 RestartSec=2
 KillMode=control-group
 TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

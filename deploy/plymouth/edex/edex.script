@@ -1,0 +1,114 @@
+/* eDEX-UI boot splash: glowing wordmark, telemetry subtitle and a segmented
+ * loading bar. Deliberately cheap: one static logo image plus a row of small
+ * sprites, so it stays smooth on the Atom. */
+
+BLOCKS = 40;
+GAP = 4;
+
+X_CENTER = Window.GetWidth() / 2;
+Y_CENTER = Window.GetHeight() / 2;
+
+Window.SetBackgroundTopColor(0.004, 0.008, 0.012);
+Window.SetBackgroundBottomColor(0.004, 0.008, 0.012);
+
+/* ------------------------------- wordmark -------------------------------- */
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(X_CENTER - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Y_CENTER - logo.image.GetHeight() / 2 - 58);
+logo.sprite.SetZ(3);
+logo.sprite.SetOpacity(1);
+
+subtitle.image = Image.Text("D3180  //  KALI  //  SECURE ACCESS", 0.35, 0.72, 0.78);
+subtitle.sprite = Sprite(subtitle.image);
+subtitle.sprite.SetX(X_CENTER - subtitle.image.GetWidth() / 2);
+subtitle.sprite.SetY(logo.sprite.GetY() + logo.image.GetHeight() - 20);
+subtitle.sprite.SetZ(3);
+subtitle.sprite.SetOpacity(0.85);
+
+/* ----------------------------- loading blocks ---------------------------- */
+block.image = Image("block.png");
+block.width = block.image.GetWidth();
+block.height = block.image.GetHeight();
+
+bar.width = BLOCKS * block.width + (BLOCKS - 1) * GAP;
+bar.x = X_CENTER - bar.width / 2;
+bar.y = Y_CENTER + 104;
+
+for (i = 0; i < BLOCKS; i++) {
+  blocks[i].sprite = Sprite(block.image);
+  blocks[i].sprite.SetX(bar.x + i * (block.width + GAP));
+  blocks[i].sprite.SetY(bar.y);
+  blocks[i].sprite.SetZ(2);
+  blocks[i].sprite.SetOpacity(0.14);
+}
+
+percent.text = "";
+percent.image = Image.Text("INITIALIZING", 0.5, 0.9, 1);
+percent.sprite = Sprite(percent.image);
+percent.sprite.SetX(X_CENTER - percent.image.GetWidth() / 2);
+percent.sprite.SetY(bar.y + block.height + 16);
+percent.sprite.SetZ(2);
+percent.sprite.SetOpacity(0.8);
+
+global.percent_text = "";
+global.percent_sprite = percent.sprite;
+global.last_pct = -1;
+
+fun setPercent (p) {
+  text = "LOADING " + p + "%";
+  if (text == global.percent_text)
+    return;
+  global.percent_text = text;
+  image = Image.Text(text, 0.5, 0.9, 1);
+  global.percent_sprite.SetImage(image);
+  global.percent_sprite.SetX(X_CENTER - image.GetWidth() / 2);
+}
+
+/* ------------------------------- progress -------------------------------- */
+fun bootProgressCallback (duration, progress) {
+  lit = Math.Int(progress * BLOCKS);
+  if (lit > BLOCKS)
+    lit = BLOCKS;
+  for (i = 0; i < BLOCKS; i++) {
+    if (i < lit)
+      blocks[i].sprite.SetOpacity(1);
+    else
+      blocks[i].sprite.SetOpacity(0.14);
+  }
+
+  p = Math.Int(progress * 100);
+  if (p != global.last_pct) {
+    global.last_pct = p;
+    setPercent(p);
+  }
+
+  /* slow pulse so the wordmark never looks frozen */
+  phase = duration % 2;
+  if (phase > 1)
+    phase = 2 - phase;
+  logo.sprite.SetOpacity(0.78 + 0.22 * phase);
+}
+
+Plymouth.SetBootProgressFunction(bootProgressCallback);
+
+/* ------------------------------- messages -------------------------------- */
+fun displayMessageCallback (text) {
+  message.image = Image.Text(text, 0.8, 0.95, 1);
+  message.sprite = Sprite(message.image);
+  message.sprite.SetPosition(
+    X_CENTER - message.image.GetWidth() / 2,
+    bar.y + block.height + 44,
+    10000
+  );
+  global.message = message;
+}
+
+Plymouth.SetMessageFunction(displayMessageCallback);
+
+fun displayNormalCallback () {
+  logo.sprite.SetOpacity(1);
+}
+
+Plymouth.SetDisplayNormalFunction(displayNormalCallback);
+Plymouth.SetQuitFunction(displayNormalCallback);

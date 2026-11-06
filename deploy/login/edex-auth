@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+"""Narrow PAM verifier for the eDEX greeter.
+
+Usage: edex-auth <pam-service> <username>
+The password is read from stdin, never from argv, so it cannot leak through
+the process list. Prints a short reason on stderr and exits non-zero on
+failure. This helper only verifies credentials; it never starts a shell or
+runs any user-supplied command.
+"""
+
+import re
+import sys
+
+import PAM
+
+SERVICE = "edex-greeter"
+USER_RE = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}$")
+
+
+def main() -> int:
+    if len(sys.argv) < 3:
+        print("usage: edex-auth SERVICE USER", file=sys.stderr)
+        return 2
+
+    service, username = sys.argv[1], sys.argv[2]
+    # The sudoers rule pins the service name; validate anyway so the helper is
+    # safe even if it is ever invoked some other way.
+    if service != SERVICE:
+        print(f"unsupported PAM service: {service}", file=sys.stderr)
+        return 2
+    if not USER_RE.match(username):
+        print("invalid username", file=sys.stderr)
+        return 2
+
+    password = sys.stdin.readline().rstrip("\r\n")
+    if not password:
+        print("empty password", file=sys.stderr)
+        return 1
+
+    def conversation(_auth, query_list, _data):
+        responses = []
+        for _query, prompt_type in query_list:
+            if prompt_type in (PAM.PAM_PROMPT_ECHO_OFF, PAM.PAM_PROMPT_ECHO_ON):
+                responses.append((password, 0))
+            else:
+                responses.append(("", 0))
+        return responses
+
+    handle = PAM.pam()
+    try:
+        handle.start(service, username)
+        handle.set_item(PAM.PAM_CONV, conversation)
+        handle.authenticate()
+        handle.acct_mgmt()
+    except PAM.error as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"authentication error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

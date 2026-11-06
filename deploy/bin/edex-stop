@@ -1,7 +1,9 @@
 #!/bin/bash
+# Stop the kiosk and hand the console back to a normal text getty.
 set -u
 sudo -n systemctl stop edex.service || { echo "failed to stop edex.service"; exit 1; }
 sleep 0.5
+sudo -n systemctl start getty@tty1.service >/dev/null 2>&1 || true
 sudo -n chvt 1 >/dev/null 2>&1 || true
 sudo -n sh -c "setterm -blank 0 -powerdown 0 </dev/tty1 >/dev/tty1 2>/dev/null" || true
 echo "edex stopped; tty1 login is available"

@@ -1,0 +1,5 @@
+# PAM service used by the eDEX login greeter (via /usr/local/libexec/edex-auth).
+# Authentication only: no session is opened here, the greeter's parent session
+# already exists. Keep this minimal so the greeter can never start a shell.
+@include common-auth
+@include common-account

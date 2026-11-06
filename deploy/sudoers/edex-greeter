@@ -1,0 +1,3 @@
+# Let the desktop user run the narrow PAM verifier for the login greeter.
+# The helper only checks a password; it cannot run arbitrary commands.
+roychong ALL=(root) NOPASSWD: /usr/local/libexec/edex-auth edex-greeter *

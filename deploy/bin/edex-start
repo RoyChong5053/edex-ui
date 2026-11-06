@@ -1,17 +1,38 @@
 #!/bin/bash
+# Start the kiosk session. It comes up at the login greeter; eDEX itself only
+# launches after a successful login, so wait for either the greeter window or
+# the eDEX backend socket and report which one we reached.
 set -u
+export DISPLAY="${KIOSK_DISPLAY:-:0}"
+export XAUTHORITY="${KIOSK_AUTH:-/run/X0-kiosk}"
+
 if systemctl is-active --quiet edex.service; then
   echo "edex already running"
 else
   sudo -n systemctl start edex.service || { echo "failed to start edex.service"; exit 1; }
 fi
-for _ in $(seq 1 40); do
-  [ -S /tmp/edex-1000.sock ] && break
+
+greeter=0
+session=0
+for _ in $(seq 1 80); do
+  if [ -S /tmp/edex-1000.sock ]; then session=1; break; fi
+  if command -v xdotool >/dev/null 2>&1 &&
+     xdotool search --name 'EDEX-UI // SECURE ACCESS' >/dev/null 2>&1; then
+    greeter=1; break
+  fi
   sleep 0.25
 done
-if command -v edex-ctl >/dev/null 2>&1; then
+
+if [ "$session" = 1 ] && command -v edex-ctl >/dev/null 2>&1; then
   edex-ctl thaw >/dev/null 2>&1 || true
   edex-ctl showcase off >/dev/null 2>&1 || true
 fi
-DISPLAY=:0 XAUTHORITY=/run/X0-kiosk xset dpms force on >/dev/null 2>&1 || true
-echo "edex started (DISPLAY=:0, VNC=5900)"
+xset dpms force on >/dev/null 2>&1 || true
+
+if [ "$session" = 1 ]; then
+  echo "edex started (DISPLAY=$DISPLAY, VNC=5900)"
+elif [ "$greeter" = 1 ]; then
+  echo "login greeter ready (DISPLAY=$DISPLAY, VNC=5900)"
+else
+  echo "edex.service started but no greeter/session appeared yet"
+fi

@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>EDEX-UI // SECURE ACCESS</title>
+<style>
+	:root {
+		--bg: #030507;
+		--fg: #9ff7ff;
+		--accent: #5ef2ff;
+		--dim: rgba(159, 247, 255, 0.45);
+		--line: rgba(94, 242, 255, 0.22);
+		--font: "Fira Code", "Fira Mono", "DejaVu Sans Mono", monospace;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		margin: 0;
+		height: 100%;
+		overflow: hidden;
+		background: var(--bg);
+		color: var(--fg);
+		font-family: var(--font);
+		letter-spacing: 0.08em;
+		cursor: default;
+		user-select: none;
+	}
+
+	/* ---- animated perspective grid ---------------------------------- */
+	.grid {
+		position: fixed;
+		inset: -28% -40% -8% -40%;
+		background-image:
+			linear-gradient(to right, rgba(94, 242, 255, 0.32) 1px, transparent 1px),
+			linear-gradient(to bottom, rgba(94, 242, 255, 0.32) 1px, transparent 1px);
+		background-size: 5.5vw 5.5vw;
+		transform: perspective(38vw) rotateX(60deg);
+		transform-origin: 50% 100%;
+		opacity: 0.55;
+		animation: grid-scroll 7s linear infinite;
+		will-change: background-position;
+	}
+
+	@keyframes grid-scroll {
+		from { background-position: 0 0, 0 0; }
+		to { background-position: 0 5.5vw, 0 5.5vw; }
+	}
+
+	/* ---- horizon glow + vignette ------------------------------------ */
+	.horizon {
+		position: fixed;
+		inset: 0;
+		background:
+			radial-gradient(ellipse 60% 34% at 50% 78%, rgba(94, 242, 255, 0.18), transparent 70%),
+			radial-gradient(ellipse 40% 28% at 50% 50%, rgba(94, 242, 255, 0.07), transparent 70%);
+		pointer-events: none;
+	}
+	/* thin luminous horizon line where the grid meets the glow */
+	.horizon::after {
+		content: "";
+		position: absolute;
+		left: 8vw;
+		right: 8vw;
+		bottom: 21.5%;
+		height: 1px;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			rgba(94, 242, 255, 0.55) 20%,
+			rgba(94, 242, 255, 0.55) 80%,
+			transparent
+		);
+		box-shadow: 0 0 22px rgba(94, 242, 255, 0.35);
+	}
+
+	.vignette {
+		position: fixed;
+		inset: 0;
+		background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.82) 100%);
+		pointer-events: none;
+	}
+
+	.scanlines {
+		position: fixed;
+		inset: 0;
+		background: repeating-linear-gradient(
+			to bottom,
+			rgba(255, 255, 255, 0.028) 0px,
+			rgba(255, 255, 255, 0.028) 1px,
+			transparent 1px,
+			transparent 3px
+		);
+		mix-blend-mode: overlay;
+		pointer-events: none;
+	}
+
+	/* ---- floating telemetry dots ------------------------------------ */
+	.particles {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		opacity: 0.55;
+	}
+	.particles i {
+		position: absolute;
+		width: 2px;
+		height: 2px;
+		background: var(--accent);
+		box-shadow: 0 0 6px var(--accent);
+		animation: drift linear infinite;
+	}
+	@keyframes drift {
+		from { transform: translateY(110vh) scale(0.4); opacity: 0; }
+		12% { opacity: 1; }
+		88% { opacity: 1; }
+		to { transform: translateY(-10vh) scale(1); opacity: 0; }
+	}
+
+	/* ---- center stage ----------------------------------------------- */
+	.stage {
+		position: fixed;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2.2vh;
+		padding: 4vh 4vw;
+	}
+
+	.logo {
+		margin: 0;
+		font-size: clamp(30px, 7.4vh, 74px);
+		font-weight: 700;
+		letter-spacing: 0.24em;
+		text-indent: 0.24em;
+		color: #d9fdff;
+		text-shadow:
+			0 0 10px rgba(94, 242, 255, 0.9),
+			0 0 34px rgba(94, 242, 255, 0.45),
+			0 0 90px rgba(94, 242, 255, 0.18);
+		animation: logo-flicker 5.5s steps(1, end) infinite;
+	}
+	.logo b {
+		color: var(--accent);
+	}
+	@keyframes logo-flicker {
+		0%, 92%, 100% { opacity: 1; }
+		93% { opacity: 0.55; }
+		94% { opacity: 1; }
+		96% { opacity: 0.7; }
+		97% { opacity: 1; }
+	}
+
+	.tagline {
+		margin-top: -1vh;
+		font-size: clamp(9px, 1.35vh, 14px);
+		letter-spacing: 0.42em;
+		text-indent: 0.42em;
+		color: var(--dim);
+	}
+
+	/* ---- login panel ------------------------------------------------ */
+	.panel {
+		position: relative;
+		width: min(44vw, 460px);
+		margin-top: 1.4vh;
+		padding: 2.6vh 2.2vw 2.2vh;
+		border: 1px solid var(--line);
+		background: linear-gradient(180deg, rgba(6, 16, 20, 0.82), rgba(2, 6, 8, 0.92));
+		box-shadow:
+			0 0 0 1px rgba(94, 242, 255, 0.05),
+			0 0 40px rgba(94, 242, 255, 0.08) inset;
+		transition: opacity 0.45s ease, transform 0.45s ease;
+	}
+	.panel::before,
+	.panel::after {
+		content: "";
+		position: absolute;
+		width: 14px;
+		height: 14px;
+		border: 1px solid var(--accent);
+		opacity: 0.8;
+	}
+	.panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+	.panel::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+
+	.panel-title {
+		margin: 0 0 1.6vh;
+		font-size: clamp(9px, 1.2vh, 12px);
+		letter-spacing: 0.34em;
+		color: var(--dim);
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6vh;
+		margin-bottom: 1.4vh;
+	}
+	.field label {
+		font-size: clamp(8px, 1.05vh, 11px);
+		letter-spacing: 0.3em;
+		color: var(--dim);
+	}
+	.field input {
+		width: 100%;
+		padding: 1vh 0.8vw;
+		border: 1px solid var(--line);
+		background: rgba(0, 0, 0, 0.45);
+		color: var(--fg);
+		font-family: var(--font);
+		font-size: clamp(12px, 1.6vh, 17px);
+		letter-spacing: 0.14em;
+		outline: none;
+		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	}
+	.field input:focus {
+		border-color: var(--accent);
+		box-shadow: 0 0 14px rgba(94, 242, 255, 0.25);
+	}
+
+	.submit {
+		width: 100%;
+		margin-top: 0.6vh;
+		padding: 1.1vh 0;
+		border: 1px solid var(--accent);
+		background: rgba(94, 242, 255, 0.08);
+		color: #d9fdff;
+		font-family: var(--font);
+		font-size: clamp(10px, 1.35vh, 14px);
+		letter-spacing: 0.34em;
+		text-indent: 0.34em;
+		cursor: pointer;
+		transition: background 0.2s ease, box-shadow 0.2s ease;
+	}
+	.submit:hover,
+	.submit:focus {
+		background: rgba(94, 242, 255, 0.2);
+		box-shadow: 0 0 22px rgba(94, 242, 255, 0.35);
+		outline: none;
+	}
+	.submit:disabled {
+		opacity: 0.45;
+		cursor: progress;
+	}
+
+	.status {
+		min-height: 1.8vh;
+		margin-top: 1.2vh;
+		font-size: clamp(8px, 1.1vh, 12px);
+		letter-spacing: 0.18em;
+		color: var(--dim);
+	}
+	.status .cursor {
+		display: inline-block;
+		width: 0.6em;
+		background: var(--accent);
+		animation: blink 1.05s steps(1) infinite;
+	}
+	@keyframes blink { 50% { opacity: 0; } }
+
+	.panel.shake {
+		animation: shake 0.34s linear;
+	}
+	@keyframes shake {
+		0%, 100% { transform: translateX(0); }
+		20% { transform: translateX(-7px); }
+		40% { transform: translateX(6px); }
+		60% { transform: translateX(-4px); }
+		80% { transform: translateX(3px); }
+	}
+
+	.foot {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 2.4vh;
+		display: flex;
+		justify-content: center;
+		gap: 3vw;
+		font-size: clamp(8px, 1.05vh, 11px);
+		letter-spacing: 0.3em;
+		color: rgba(159, 247, 255, 0.28);
+	}
+
+	/* ---- post-auth boot screen -------------------------------------- */
+	.boot {
+		position: fixed;
+		inset: 0;
+		z-index: 20;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1.6vh;
+		background:
+			radial-gradient(circle at center, rgba(94, 242, 255, 0.09), transparent 55%),
+			#030507;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.4s ease;
+	}
+	body.granted .boot {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	body.granted .panel,
+	body.granted .foot {
+		opacity: 0;
+		transform: scale(0.98);
+	}
+
+	.boot-logo {
+		margin: 0;
+		font-size: clamp(18px, 4vh, 40px);
+		letter-spacing: 0.26em;
+		text-indent: 0.26em;
+		color: #d9fdff;
+		text-shadow: 0 0 12px rgba(94, 242, 255, 0.8), 0 0 40px rgba(94, 242, 255, 0.35);
+	}
+	.boot-msg {
+		font-size: clamp(9px, 1.25vh, 13px);
+		letter-spacing: 0.3em;
+		color: var(--dim);
+	}
+	.boot-bar {
+		width: min(52vw, 560px);
+		height: 0.45vh;
+		border: 1px solid var(--line);
+		background: rgba(94, 242, 255, 0.04);
+		overflow: hidden;
+	}
+	.boot-fill {
+		height: 100%;
+		width: 0;
+		background: var(--accent);
+		box-shadow: 0 0 14px var(--accent);
+	}
+	/* Only start the boot sequence once credentials are accepted, otherwise it
+	   would have finished long before the operator logs in. */
+	body.granted .boot-fill {
+		animation: fill 3.2s ease-in-out forwards;
+	}
+	@keyframes fill {
+		0% { width: 0; }
+		55% { width: 72%; }
+		100% { width: 100%; }
+	}
+	.boot-lines {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5vh;
+		width: min(52vw, 560px);
+		font-size: clamp(9px, 1.15vh, 13px);
+		color: rgba(159, 247, 255, 0.55);
+	}
+	.boot-lines span {
+		opacity: 0;
+	}
+	body.granted .boot-lines span {
+		animation: line-in 0.3s ease forwards;
+	}
+	body.granted .boot-lines span:nth-child(1) { animation-delay: 0.2s; }
+	body.granted .boot-lines span:nth-child(2) { animation-delay: 0.55s; }
+	body.granted .boot-lines span:nth-child(3) { animation-delay: 0.9s; }
+	body.granted .boot-lines span:nth-child(4) { animation-delay: 1.25s; }
+	@keyframes line-in {
+		from { opacity: 0; transform: translateX(-6px); }
+		to { opacity: 1; transform: translateX(0); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.grid, .particles i, .logo, .status .cursor { animation: none !important; }
+	}
+</style>
+</head>
+<body>
+	<div class="grid"></div>
+	<div class="horizon"></div>
+	<div class="vignette"></div>
+	<div class="scanlines"></div>
+	<div class="particles" id="particles"></div>
+
+	<main class="stage">
+		<h1 class="logo">eDEX<b>-UI</b></h1>
+		<div class="tagline">D3180 · KALI · SECURE ACCESS</div>
+
+		<form class="panel" id="form" autocomplete="off">
+			<p class="panel-title">// AUTHENTICATION REQUIRED</p>
+			<div class="field">
+				<label for="user">OPERATOR</label>
+				<input id="user" name="user" type="text" value="roychong" spellcheck="false" autocapitalize="off" />
+			</div>
+			<div class="field">
+				<label for="pass">PASSPHRASE</label>
+				<input id="pass" name="pass" type="password" spellcheck="false" />
+			</div>
+			<button class="submit" id="submit" type="submit">AUTHENTICATE</button>
+			<div class="status" id="status">AWAITING CREDENTIALS<span class="cursor">&nbsp;</span></div>
+		</form>
+	</main>
+
+	<div class="foot">
+		<span>SECURE SHELL</span>
+		<span>BUILD 0.2.0</span>
+		<span>SESSION :0</span>
+	</div>
+
+	<section class="boot" id="boot">
+		<h2 class="boot-logo">eDEX-UI</h2>
+		<div class="boot-msg" id="bootmsg">ACCESS GRANTED · INITIALIZING SESSION</div>
+		<div class="boot-bar"><div class="boot-fill"></div></div>
+		<div class="boot-lines">
+			<span>[ OK ] identity verified</span>
+			<span>[ OK ] session bus online</span>
+			<span>[ .. ] summoning cockpit interface</span>
+			<span>[ .. ] handoff to compositor</span>
+		</div>
+	</section>
+
+	<script>
+		(function () {
+			const form = document.getElementById('form');
+			const user = document.getElementById('user');
+			const pass = document.getElementById('pass');
+			const submit = document.getElementById('submit');
+			const status = document.getElementById('status');
+			const particles = document.getElementById('particles');
+
+			// A handful of drifting telemetry specks. Kept tiny so the greeter
+			// stays cheap on the Atom.
+			for (let i = 0; i < 26; i += 1) {
+				const dot = document.createElement('i');
+				dot.style.left = (Math.random() * 100).toFixed(2) + 'vw';
+				dot.style.animationDuration = (6 + Math.random() * 9).toFixed(2) + 's';
+				dot.style.animationDelay = (-Math.random() * 12).toFixed(2) + 's';
+				particles.appendChild(dot);
+			}
+
+			function post(type, payload) {
+				if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.edex) {
+					window.webkit.messageHandlers.edex.postMessage(JSON.stringify(Object.assign({ type: type }, payload)));
+				}
+			}
+
+			form.addEventListener('submit', function (event) {
+				event.preventDefault();
+				if (!user.value || !pass.value) {
+					status.textContent = 'CREDENTIALS INCOMPLETE';
+					return;
+				}
+				submit.disabled = true;
+				status.textContent = 'AUTHENTICATING...';
+				post('login', { username: user.value, password: pass.value });
+			});
+
+			// Python -> JS callbacks.
+			window.edex = {
+				granted: function () {
+					document.body.classList.add('granted');
+					document.getElementById('bootmsg').textContent = 'ACCESS GRANTED · INITIALIZING SESSION';
+				},
+				failed: function (message) {
+					document.body.classList.remove('granted');
+					submit.disabled = false;
+					pass.value = '';
+					pass.focus();
+					status.textContent = (message || 'ACCESS DENIED').toUpperCase();
+					const panel = document.getElementById('form');
+					panel.classList.remove('shake');
+					void panel.offsetWidth;
+					panel.classList.add('shake');
+				}
+			};
+
+			pass.focus();
+		})();
+	</script>
+</body>
+</html>

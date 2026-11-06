@@ -10,11 +10,20 @@ truth and update it whenever the deployed copy changes.
 | --- | --- |
 | `deploy/systemd/edex.service` | `/etc/systemd/system/edex.service` |
 | `deploy/bin/edex-kiosk.sh` | `/usr/local/bin/edex-kiosk.sh` |
-| `deploy/bin/edex-user-session.sh` | `/usr/local/bin/edex-user-session.sh` |
+| `deploy/bin/edex-greeter-loop.sh` | `/usr/local/bin/edex-greeter-loop.sh` |
+| `deploy/bin/edex-run.sh` | `/usr/local/bin/edex-run.sh` |
 | `deploy/bin/edex-ctl` | `/usr/local/bin/edex-ctl` |
 | `deploy/bin/edex-start` | `/usr/local/bin/edex-start` |
 | `deploy/bin/edex-stop` | `/usr/local/bin/edex-stop` |
 | `deploy/bin/edex-status` | `/usr/local/bin/edex-status` |
+| `deploy/login/greeter.html` | `/usr/local/share/edex/greeter.html` |
+| `deploy/login/edex-greeter.py` | `/usr/local/bin/edex-greeter` |
+| `deploy/login/edex-auth` | `/usr/local/libexec/edex-auth` |
+| `deploy/pam/edex-greeter` | `/etc/pam.d/edex-greeter` |
+| `deploy/pam/systemd-user` | `/etc/pam.d/systemd-user` |
+| `deploy/sudoers/edex-greeter` | `/etc/sudoers.d/edex-greeter` |
+| `deploy/modprobe/edex-quiet.conf` | `/etc/modprobe.d/edex-quiet.conf` |
+| `deploy/plymouth/edex/*` | `/usr/share/plymouth/themes/edex/*` |
 | `deploy/xorg/20-modesetting.conf` | `/etc/X11/xorg.conf.d/20-modesetting.conf` |
 
 `edex-kiosk.service` (the old always-on variant) is intentionally not shipped:
@@ -24,6 +33,35 @@ the user asks for it. If the old unit is still installed, disable it:
 ```bash
 sudo systemctl disable --now edex-kiosk.service
 ```
+
+## Boot, greeter and session
+
+This machine runs **no display manager**: `edex.service` starts Xorg, the login
+greeter, the openbox session, VNC and eDEX directly. On boot the sequence is:
+
+```
+plymouth splash → Xorg → greeter (login) → [login] → eDEX boot overlay → cockpit
+```
+
+- **`edex-greeter`** (Python 3 + GTK3 + WebKit2) renders the animated login
+  screen (`greeter.html`). It authenticates through PAM using a narrow,
+  root-owned helper (`edex-auth`) invoked with a `NOPASSWD` sudoers rule. The
+  password only ever touches the helper's stdin — never a shell, argv, or the
+  process list — and only the `roychong` account can unlock the console.
+- **`edex-greeter-loop.sh`** (run as `roychong` via `runuser`) drives the
+  session. On success it starts eDEX *behind* the still-present greeter, waits
+  for eDEX's window to map, then removes the greeter — so the login animation
+  flows straight into eDEX's boot overlay instead of popping in.
+- **`edex-run.sh`** supervises the eDEX binary so a crash restarts the cockpit.
+
+Notes:
+
+- Boot noise is suppressed by blacklisting `cros_charge_control` and
+  `snd_soc_rt5640` (the audio path actually uses `rt5645`), a fresh
+  `/etc/pam.d/systemd-user` (fixes the "pam.d not supported" warning), a quiet
+  GRUB cmdline, and a custom eDEX plymouth theme. `plymouth-set-default-theme
+  edex -R` rebuilds the initramfs so the splash shows before the root mount.
+- `edex-stop` returns the console to a text login by starting `getty@tty1`.
 
 ## Build and install
 

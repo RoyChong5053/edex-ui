@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=eDEX-UI
+Description=eDEX-UI boot sequence
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/edex
+ScriptFile=/usr/share/plymouth/themes/edex/edex.script
